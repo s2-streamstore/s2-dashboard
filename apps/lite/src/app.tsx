@@ -40,11 +40,11 @@ function View({
       );
     case 'streams':
       return (
-        <div className="flex gap-6">
+        <div className="mx-auto flex max-w-[1240px] gap-6">
           <aside className="hidden w-80 shrink-0 xl:block">
             <Basins />
           </aside>
-          <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 flex-1 justify-center">
             <Streams />
           </div>
         </div>
