@@ -47,7 +47,7 @@ const TableBasins = ({ data, onSelectedBasinsChange }: TableBasinsProps) => {
     config: BasinConfig;
   } | null>(null);
   const [deleteDialog, setDeleteDialog] = useState<null | string[]>(null);
-  const { getClient, route, Link } = useDashboardHost();
+  const { getClient, route, Link, capabilities } = useDashboardHost();
   const { pathname } = route;
   const section = isDashboardSection(pathname, 'basins') ? 'basins' : 'metrics';
 
@@ -82,7 +82,7 @@ const TableBasins = ({ data, onSelectedBasinsChange }: TableBasinsProps) => {
               Name
             </TableHead>
             <TableHead>State</TableHead>
-            <TableHead>Location</TableHead>
+            {capabilities.locations && <TableHead>Location</TableHead>}
             <TableHead className="w-10 pr-0"></TableHead>
           </TableRow>
         </TableHeader>
@@ -159,9 +159,11 @@ const TableBasins = ({ data, onSelectedBasinsChange }: TableBasinsProps) => {
                     {stateLabel}
                   </span>
                 </TableCell>
-                <TableCell className="text-nowrap">
-                  {basin.location ?? 'unspecified'}
-                </TableCell>
+                {capabilities.locations && (
+                  <TableCell className="text-nowrap">
+                    {basin.location ?? 'unspecified'}
+                  </TableCell>
+                )}
                 <TableCell className="pr-0 pl-2">
                   {!isDeleting && (
                     <DropdownMenu modal={false}>
