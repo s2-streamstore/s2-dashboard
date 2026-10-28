@@ -1,0 +1,28 @@
+{
+  "name": "@s2-dev/dashboard-lite",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Static dashboard bundle served by s2-lite at /dashboard",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@s2-dev/dashboard": "workspace:*",
+    "@s2-dev/streamstore": "^0.29.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-query": "^3.39.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.2",
+    "@types/react": "^18.3.28",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^5.0.0",
+    "tailwindcss": "^4.3.2",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.7"
+  }
+}
