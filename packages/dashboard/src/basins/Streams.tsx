@@ -1,7 +1,7 @@
 'use client';
 import { Button } from '../ui/button';
 import { fetchStreamsData, getBasinConfig } from './api';
-import { Plus, SquareTerminal, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Plus, SquareTerminal, Trash2, X } from 'lucide-react';
 import { useQuery } from 'react-query';
 import Loading from '../components/Loading';
 import EmptyList from '../components/EmptyList';
@@ -11,10 +11,11 @@ import { useEffect, useState } from 'react';
 import CreateEditStreamDialog from './CreateEditStream';
 import { useIsMobile } from '../hooks/use-mobile';
 import { Input } from '../ui/input';
-import type {
-  StreamConfig,
-  StreamInfo,
-  ListStreamsResponse,
+import {
+  S2Error,
+  type StreamConfig,
+  type StreamInfo,
+  type ListStreamsResponse,
 } from '@s2-dev/streamstore';
 import DeleteStreamDialog from './DeleteStream';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
@@ -82,7 +83,7 @@ export default function Streams() {
     }
   );
 
-  const { data: defaultStreamConfig } = useQuery(
+  const { data: defaultStreamConfig, error: basinConfigError } = useQuery(
     ['basin-config', scopeKey, route.basinId],
     async (): Promise<StreamConfig | null | undefined> => {
       const s2 = await getClient();
@@ -97,6 +98,10 @@ export default function Streams() {
       return data.defaultStreamConfig;
     }
   );
+  // Stale URL (basin deleted, or lite restarted without durable storage):
+  // the basin config 404s while list streams may still return an empty page.
+  const basinNotFound =
+    basinConfigError instanceof S2Error && basinConfigError.status === 404;
 
   // Update localStreams during render when streamsResponse changes, avoiding
   // setState-in-effect. Gating on the response reference prevents stale-data
@@ -179,9 +184,19 @@ export default function Streams() {
 
   return (
     <aside className="bg-background w-full max-w-4xl flex-1 space-y-2 [&:not(:only-child)]:sticky [&:not(:only-child)]:top-14 [&:not(:only-child)]:-mr-4 [&:not(:only-child)]:-mb-4 [&:not(:only-child)]:h-[calc(100vh-56px)] [&:not(:only-child)]:max-h-[calc(100vh-56px)] [&:not(:only-child)]:overflow-y-auto [&:not(:only-child)]:border-l [&:not(:only-child)]:p-4 [&:not(:only-child)]:pb-0">
-      {isLoading &&
-      localStreams.length === 0 &&
-      debouncedSearchTerm.length === 0 ? (
+      {basinNotFound ? (
+        <EmptyList
+          title={`Basin "${route.basinId}" was not found`}
+          description="It may have been deleted."
+          cta={{
+            icon: <ArrowLeft />,
+            label: 'Back to basins',
+            onClick: () => navigate('/dashboard/basins'),
+          }}
+        />
+      ) : isLoading &&
+        localStreams.length === 0 &&
+        debouncedSearchTerm.length === 0 ? (
         <Loading />
       ) : (
         <>
