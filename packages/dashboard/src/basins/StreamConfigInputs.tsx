@@ -1,5 +1,6 @@
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { useDashboardHost } from './dashboard-host';
 import {
   Select,
   SelectContent,
@@ -54,6 +55,7 @@ const INLINE_AGE_INPUT_CLASS =
 const DEFAULT_DELETE_ON_EMPTY_MIN_AGE_SECS = 3600;
 
 const StreamConfigInputs = ({ config, setConfig }: StreamConfigProps) => {
+  const { capabilities } = useDashboardHost();
   const currentConfig = { ...defaultConfig, ...config };
 
   const getRetentionPolicyType = (
@@ -166,38 +168,40 @@ const StreamConfigInputs = ({ config, setConfig }: StreamConfigProps) => {
 
   return (
     <TooltipProvider>
-      <div className={SETTING_ROW_CLASS}>
-        <div className="flex items-center gap-2">
-          <Label>Storage Class</Label>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Info className="text-muted-foreground h-4 w-4" />
-            </TooltipTrigger>
-            <TooltipContent className="max-w-xs">
-              <p>
-                <strong>Express</strong> — append acknowledgements with p99
-                latency &lt; 40ms from clients in the same region.
-              </p>
-              <p className="mt-1">
-                <strong>Standard</strong> — append acknowledgements with p99
-                latency &lt; 400ms from clients in the same region.
-              </p>
-            </TooltipContent>
-          </Tooltip>
+      {capabilities.storageClasses && (
+        <div className={SETTING_ROW_CLASS}>
+          <div className="flex items-center gap-2">
+            <Label>Storage Class</Label>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="text-muted-foreground h-4 w-4" />
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <p>
+                  <strong>Express</strong> — append acknowledgements with p99
+                  latency &lt; 40ms from clients in the same region.
+                </p>
+                <p className="mt-1">
+                  <strong>Standard</strong> — append acknowledgements with p99
+                  latency &lt; 400ms from clients in the same region.
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+          <Select
+            value={currentConfig.storageClass || defaultConfig.storageClass}
+            onValueChange={handleStorageClassChange}
+          >
+            <SelectTrigger className={COMPACT_SELECT_CLASS}>
+              <SelectValue>{currentConfig.storageClass}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="standard">Standard</SelectItem>
+              <SelectItem value="express">Express</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
-        <Select
-          value={currentConfig.storageClass || defaultConfig.storageClass}
-          onValueChange={handleStorageClassChange}
-        >
-          <SelectTrigger className={COMPACT_SELECT_CLASS}>
-            <SelectValue>{currentConfig.storageClass}</SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="standard">Standard</SelectItem>
-            <SelectItem value="express">Express</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      )}
       <div className={SETTING_ROW_CLASS}>
         <div className="flex items-center gap-2">
           <Label>Retention Policy</Label>

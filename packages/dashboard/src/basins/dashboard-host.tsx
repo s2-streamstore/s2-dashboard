@@ -17,6 +17,8 @@ import { setToastSink, type ToastFn } from '../ui/use-toast';
 export interface DashboardCapabilities {
   /* Offer a location picker when creating a basin (`listLocations`). */
   locations: boolean;
+  /* Offer the standard/express storage class choice; lite stores but ignores it. */
+  storageClasses: boolean;
 }
 
 /* Host-rendered content for cloud-only sections. A slot that is absent hides its UI. */

@@ -63,7 +63,7 @@ export function LiteDashboardHost({
       getToken,
       endpoints: { account: ORIGIN, basin: ORIGIN },
       scopeKey: 'lite',
-      capabilities: { locations: false },
+      capabilities: { locations: false, storageClasses: false },
       route: {
         pathname: route.pathname,
         basinId: route.basinId,

@@ -2,3 +2,5 @@ node_modules/
 dist/
 *.tsbuildinfo
 .DS_Store
+# the built bundle s2-lite vendors via a git submodule
+!apps/lite/dist/

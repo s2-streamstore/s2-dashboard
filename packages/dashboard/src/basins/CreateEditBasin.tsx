@@ -235,7 +235,7 @@ const CreateEditBasinDialog = ({
                   disabled={Boolean(data)}
                 />
               </div>
-              {isCreating && (
+              {isCreating && capabilities.locations && (
                 <div className="space-y-2">
                   <Label htmlFor="location">Location</Label>
                   <Select

@@ -20,3 +20,5 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm build
+      - name: Check apps/lite/dist is up to date
+        run: git diff --exit-code -- apps/lite/dist
