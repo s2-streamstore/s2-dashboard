@@ -33,7 +33,11 @@ function View({
 }): ReactElement | null {
   switch (view) {
     case 'basins':
-      return <Basins />;
+      return (
+        <div className="mx-auto max-w-3xl">
+          <Basins />
+        </div>
+      );
     case 'streams':
       return (
         <div className="flex gap-6">
