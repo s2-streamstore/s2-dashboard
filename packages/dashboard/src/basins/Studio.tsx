@@ -81,6 +81,7 @@ import {
   openReadSession,
   readStreamBatch,
   trimStream,
+  type StudioAppendInput,
   type StudioAppendRecordInput,
 } from './api';
 import { RecordView, RecordViewHandle } from './RecordView';
@@ -273,16 +274,55 @@ function buildReadCurlCommand(
     ? shellQuote(`Authorization: Bearer ${token}`)
     : '"Authorization: Bearer ${S2_ACCESS_TOKEN}"';
 
+  const basinHeader = shellQuote(`s2-basin: ${basinName}`);
+
   if (streaming) {
     return `curl -N \\
   -H ${authorizationHeader} \\
+  -H ${basinHeader} \\
   -H "Accept: text/event-stream" \\
   "${url.toString()}"`;
   }
 
   return `curl \\
   -H ${authorizationHeader} \\
+  -H ${basinHeader} \\
   "${url.toString()}"`;
+}
+
+function buildAppendCurlCommand(
+  basinName: string,
+  streamName: string,
+  input: StudioAppendInput,
+  token?: string,
+  basinEndpoint?: string
+): string {
+  const baseUrl = makeReadBaseUrl(basinName, basinEndpoint);
+  const url = `${baseUrl}/streams/${encodeURIComponent(streamName)}/records`;
+
+  const authorizationHeader = token
+    ? shellQuote(`Authorization: Bearer ${token}`)
+    : '"Authorization: Bearer ${S2_ACCESS_TOKEN}"';
+
+  const body = JSON.stringify({
+    records: input.records.map((record) => ({
+      body: record.body,
+      ...(record.headers ? { headers: record.headers } : {}),
+    })),
+    ...(input.matchSeqNum !== undefined
+      ? { match_seq_num: input.matchSeqNum }
+      : {}),
+    ...(input.fencingToken !== undefined
+      ? { fencing_token: input.fencingToken }
+      : {}),
+  });
+
+  return `curl -X POST \\
+  -H ${authorizationHeader} \\
+  -H ${shellQuote(`s2-basin: ${basinName}`)} \\
+  -H "Content-Type: application/json" \\
+  --data ${shellQuote(body)} \\
+  "${url}"`;
 }
 
 function decodeQueryParam(value: string): string {
@@ -337,6 +377,7 @@ export default function Studio() {
   const [uriCopied, setUriCopied] = useState(false);
   const [readCurlCopied, setReadCurlCopied] = useState(false);
   const [streamCurlCopied, setStreamCurlCopied] = useState(false);
+  const [appendCurlCopied, setAppendCurlCopied] = useState(false);
 
   const [encryptionKey, setEncryptionKey] = useState('');
   const [showEncryptionKey, setShowEncryptionKey] = useState(false);
@@ -736,8 +777,50 @@ export default function Studio() {
       endpoints?.basin
     );
 
-    const setCopied = streaming ? setStreamCurlCopied : setReadCurlCopied;
+    writeCurlToClipboard(
+      curlCommand,
+      streaming ? 'stream' : 'read',
+      streaming ? setStreamCurlCopied : setReadCurlCopied
+    );
+  };
 
+  const copyAppendCurl = async () => {
+    if (!selectedStream) {
+      return;
+    }
+
+    let input: StudioAppendInput;
+    try {
+      input = buildAppendInput();
+    } catch (error) {
+      toast({
+        title: 'Invalid append payload',
+        description:
+          error instanceof Error ? error.message : 'Could not build command',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const curlToken = (await resolveToken()) ?? undefined;
+    writeCurlToClipboard(
+      buildAppendCurlCommand(
+        basinId,
+        selectedStream,
+        input,
+        curlToken,
+        endpoints?.basin
+      ),
+      'append',
+      setAppendCurlCopied
+    );
+  };
+
+  const writeCurlToClipboard = (
+    curlCommand: string,
+    label: string,
+    setCopied: (copied: boolean) => void
+  ) => {
     void navigator.clipboard
       .writeText(curlCommand)
       .then(() => {
@@ -745,7 +828,7 @@ export default function Studio() {
         setTimeout(() => setCopied(false), 2000);
         toast({
           title: 'Copied',
-          description: `curl ${streaming ? 'stream' : 'read'} command copied to clipboard`,
+          description: `curl ${label} command copied to clipboard`,
         });
       })
       .catch((error: unknown) => {
@@ -874,6 +957,18 @@ export default function Studio() {
     });
   };
 
+  const buildAppendInput = (): StudioAppendInput => {
+    const parsedMatchSeqNum = Number.parseInt(appendMatchSeqNum, 10);
+    return {
+      records: parseAppendRecords(),
+      matchSeqNum:
+        appendMatchSeqNum.trim() && !Number.isNaN(parsedMatchSeqNum)
+          ? parsedMatchSeqNum
+          : undefined,
+      fencingToken: appendFencingToken.trim() || undefined,
+    };
+  };
+
   const handleAppend = async () => {
     if (!selectedStream) {
       return;
@@ -891,21 +986,14 @@ export default function Studio() {
 
     setAppending(true);
     try {
-      const records = parseAppendRecords();
-      const parsedMatchSeqNum = Number.parseInt(appendMatchSeqNum, 10);
+      const input = buildAppendInput();
+      const records = input.records;
 
       const ack = await appendToStream(
         s2,
         basinId,
         selectedStream,
-        {
-          records,
-          matchSeqNum:
-            appendMatchSeqNum.trim() && !Number.isNaN(parsedMatchSeqNum)
-              ? parsedMatchSeqNum
-              : undefined,
-          fencingToken: appendFencingToken.trim() || undefined,
-        },
+        input,
         encryptionKey.trim() || undefined
       );
 
@@ -1751,19 +1839,42 @@ export default function Studio() {
                     </TooltipProvider>
                   </div>
                   <div className="border-border/30 border-t p-3">
-                    <Button
-                      size="sm"
-                      className="h-8 w-full"
-                      onClick={() => void handleAppend()}
-                      disabled={appending}
-                    >
-                      {appending ? (
-                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Send className="mr-1.5 h-3.5 w-3.5" />
-                      )}
-                      Append
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        size="sm"
+                        className="h-8 flex-1"
+                        onClick={() => void handleAppend()}
+                        disabled={appending}
+                      >
+                        {appending ? (
+                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Send className="mr-1.5 h-3.5 w-3.5" />
+                        )}
+                        Append
+                      </Button>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="text-muted-foreground h-8 w-8"
+                              onClick={() => void copyAppendCurl()}
+                            >
+                              {appendCurlCopied ? (
+                                <Check className="h-3 w-3" />
+                              ) : (
+                                <Copy className="h-3 w-3" />
+                              )}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent className="text-xs">
+                            Copy curl command
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
                     {lastAppendAck && (
                       <div className="bg-muted/50 text-muted-foreground/70 mt-2 space-y-0.5 rounded px-2 py-1.5 font-mono text-[10px] tabular-nums">
                         <div className="flex justify-between">
