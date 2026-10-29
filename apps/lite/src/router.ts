@@ -34,7 +34,7 @@ export interface ParsedRoute {
   pathname: string;
   searchParams: URLSearchParams;
   basinId?: string;
-  view: 'basins' | 'streams' | 'studio' | 'unknown';
+  view: 'basins' | 'streams' | 'studio' | 'server' | 'unknown';
 }
 
 export function parseRoute(href: string): ParsedRoute {
@@ -51,6 +51,9 @@ export function parseRoute(href: string): ParsedRoute {
   }
   if (pathname === '/dashboard/basins') {
     return { pathname, searchParams: url.searchParams, view: 'basins' };
+  }
+  if (pathname === '/dashboard/server') {
+    return { pathname, searchParams: url.searchParams, view: 'server' };
   }
   return { pathname, searchParams: url.searchParams, view: 'unknown' };
 }

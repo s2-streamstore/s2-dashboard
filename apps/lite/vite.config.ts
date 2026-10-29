@@ -13,7 +13,10 @@ export default defineConfig(({ mode }) => {
     plugins: [react(), tailwindcss()],
     server: {
       proxy: liteUrl
-        ? { '/v1': { target: liteUrl, changeOrigin: true } }
+        ? {
+            '/v1': { target: liteUrl, changeOrigin: true },
+            '/dashboard/config.json': { target: liteUrl, changeOrigin: true },
+          }
         : undefined,
     },
     build: {

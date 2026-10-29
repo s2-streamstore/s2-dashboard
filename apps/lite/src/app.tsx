@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from 'react-query';
 import { Basins, Streams, Studio, Toaster } from '@s2-dev/dashboard';
 import { LiteDashboardHost } from './lite-host';
 import { navigate, parseRoute, useLocationHref } from './router';
+import { ServerPage, StoreChip } from './server-info';
 import { useTheme } from './theme';
 
 const queryClient = new QueryClient({
@@ -86,6 +87,13 @@ function Header(): ReactElement {
         <span className="text-muted-foreground font-mono">s2-lite</span>
       </a>
       <div className="flex items-center gap-3">
+        <StoreChip />
+        <a
+          href="/dashboard/server"
+          className="text-muted-foreground text-sm hover:underline"
+        >
+          Server
+        </a>
         <a
           href="https://s2.dev/docs"
           target="_blank"
@@ -125,6 +133,12 @@ function View({
       );
     case 'studio':
       return <Studio />;
+    case 'server':
+      return (
+        <div className="mx-auto max-w-xl">
+          <ServerPage />
+        </div>
+      );
     default:
       return null;
   }
