@@ -137,7 +137,7 @@ export function ServerPage(): ReactElement {
             href={`https://github.com/s2-streamstore/s2/tree/s2-lite-v${data.version}`}
             target="_blank"
             rel="noreferrer"
-            className="hover:underline"
+            className="decoration-muted-foreground hover:decoration-foreground underline underline-offset-4"
           >
             {data.version}
           </a>
@@ -169,7 +169,7 @@ export function ServerPage(): ReactElement {
           href="https://s2.dev"
           target="_blank"
           rel="noreferrer"
-          className="hover:underline"
+          className="decoration-muted-foreground hover:decoration-foreground underline underline-offset-4"
         >
           s2.dev
         </a>
