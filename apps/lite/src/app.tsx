@@ -83,7 +83,7 @@ function Header(): ReactElement {
         className="flex items-center gap-2 text-sm font-semibold"
       >
         <S2Logo />
-        <span className="text-muted-foreground font-mono">lite</span>
+        <span className="text-muted-foreground font-mono">s2-lite</span>
       </a>
       <div className="flex items-center gap-3">
         <a
