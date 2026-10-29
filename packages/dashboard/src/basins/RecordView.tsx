@@ -171,7 +171,7 @@ function RecordItem({ record, defaultExpanded = false }: RecordItemProps) {
         <span className="text-muted-foreground/60 w-12 shrink-0 text-right font-mono text-xs tabular-nums">
           {seqNum}
         </span>
-        <span className="text-muted-foreground/40 w-[23ch] shrink-0 font-mono text-xs tabular-nums">
+        <span className="text-muted-foreground/40 w-44 shrink-0 font-mono text-xs tabular-nums">
           {timeString}
         </span>
         <span className="flex w-20 shrink-0 items-center gap-1">
@@ -200,7 +200,7 @@ function RecordItem({ record, defaultExpanded = false }: RecordItemProps) {
             </span>
           )}
         </span>
-        <span className="text-muted-foreground/30 w-10 shrink-0 text-right text-[10px] tabular-nums">
+        <span className="text-muted-foreground/60 w-14 shrink-0 text-right font-mono text-xs tabular-nums">
           {formatBytes(size)}
         </span>
         <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -401,13 +401,13 @@ export const RecordView = forwardRef<RecordViewHandle, RecordViewProps>(
               <span className="text-muted-foreground/70 w-12 shrink-0 text-right font-mono text-[10px] tracking-wide uppercase">
                 seq
               </span>
-              <span className="text-muted-foreground/70 w-[23ch] shrink-0 font-mono text-[10px] tracking-wide uppercase">
+              <span className="text-muted-foreground/70 w-44 shrink-0 font-mono text-[10px] tracking-wide uppercase">
                 time
               </span>
               <span className="text-muted-foreground/70 w-20 shrink-0 font-mono text-[10px] tracking-wide uppercase">
                 type
               </span>
-              <span className="text-muted-foreground/70 w-10 shrink-0 text-right font-mono text-[10px] tracking-wide uppercase">
+              <span className="text-muted-foreground/70 w-14 shrink-0 text-right font-mono text-[10px] tracking-wide uppercase">
                 size
               </span>
               <span className="text-muted-foreground/70 min-w-0 flex-1 font-mono text-[10px] tracking-wide uppercase">

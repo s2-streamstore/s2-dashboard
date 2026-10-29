@@ -123,10 +123,12 @@ export function ServerPage(): ReactElement {
       </div>
       {data.store.kind === 'memory' && (
         <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
-          This instance uses an in-memory store. Basins, streams and records are
-          lost when the process exits. Start with{' '}
-          <code className="font-mono">--local-root</code> or{' '}
-          <code className="font-mono">--bucket</code> for durable storage.
+          <p className="font-medium">This instance uses an in-memory store.</p>
+          <p>
+            Basins, streams and records are lost when the process exits. Start
+            with <code className="font-mono">--local-root</code> or{' '}
+            <code className="font-mono">--bucket</code> for durable storage.
+          </p>
         </div>
       )}
       <dl className="rounded-md border px-3">
