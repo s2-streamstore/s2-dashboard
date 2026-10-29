@@ -3,10 +3,63 @@ import { QueryClient, QueryClientProvider } from 'react-query';
 import { Basins, Streams, Studio, Toaster } from '@s2-dev/dashboard';
 import { LiteDashboardHost } from './lite-host';
 import { navigate, parseRoute, useLocationHref } from './router';
+import { useTheme } from './theme';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { refetchOnWindowFocus: false, retry: false } },
 });
+
+function ThemeToggle(): ReactElement {
+  const [theme, toggle] = useTheme();
+  const label =
+    theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      aria-label={label}
+      title={label}
+      className="text-muted-foreground hover:text-foreground flex size-8 items-center justify-center rounded-md"
+    >
+      {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+    </button>
+  );
+}
+
+function SunIcon(): ReactElement {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+    </svg>
+  );
+}
+
+function MoonIcon(): ReactElement {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+    </svg>
+  );
+}
 
 function Header(): ReactElement {
   return (
@@ -14,14 +67,17 @@ function Header(): ReactElement {
       <a href="/dashboard/basins" className="font-mono text-sm font-semibold">
         s2-lite
       </a>
-      <a
-        href="https://s2.dev/docs"
-        target="_blank"
-        rel="noreferrer"
-        className="text-muted-foreground text-sm hover:underline"
-      >
-        Docs
-      </a>
+      <div className="flex items-center gap-3">
+        <a
+          href="https://s2.dev/docs"
+          target="_blank"
+          rel="noreferrer"
+          className="text-muted-foreground text-sm hover:underline"
+        >
+          Docs
+        </a>
+        <ThemeToggle />
+      </div>
     </header>
   );
 }

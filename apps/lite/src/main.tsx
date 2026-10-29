@@ -2,10 +2,9 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './app';
 import './styles.css';
+import { applyTheme, initialTheme } from './theme';
 
-if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-  document.documentElement.classList.add('dark');
-}
+applyTheme(initialTheme());
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
