@@ -245,7 +245,9 @@ const CreateEditBasinDialog = ({
                   disabled={Boolean(data)}
                 />
                 {showNameError && (
-                  <p className="text-destructive text-xs">{nameError}</p>
+                  <p className="text-destructive text-xs dark:text-red-400">
+                    {nameError}
+                  </p>
                 )}
               </div>
               {isCreating && capabilities.locations && (
@@ -278,7 +280,7 @@ const CreateEditBasinDialog = ({
                     </SelectContent>
                   </Select>
                   {isLocationsError && (
-                    <p className="text-destructive text-xs">
+                    <p className="text-destructive text-xs dark:text-red-400">
                       Couldn&apos;t load locations — basin will be created in
                       your account default.
                     </p>
