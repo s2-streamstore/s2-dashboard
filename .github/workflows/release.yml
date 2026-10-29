@@ -1,0 +1,39 @@
+name: Release
+
+# On every push to main: rebuild apps/lite, commit the refreshed dist, and tag
+# v<version> from apps/lite/package.json when that tag does not exist yet, so
+# that s2 can pin the lite/dashboard submodule to the tag. Bumping the version
+# in a PR is the release.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Commit dist and tag
+        run: |
+          version=$(node -p "require('./apps/lite/package.json').version")
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add apps/lite/dist
+          git diff --cached --quiet || git commit -m "release: rebuild apps/lite/dist"
+          if git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null; then
+            echo "v$version already tagged"
+          else
+            git tag "v$version"
+          fi
+          git push origin HEAD --tags
