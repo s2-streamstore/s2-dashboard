@@ -122,7 +122,7 @@ export function ServerPage(): ReactElement {
         </p>
       </div>
       {data.store.kind === 'memory' && (
-        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
+        <div className="space-y-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
           <p className="font-medium">This instance uses an in-memory store.</p>
           <p>
             Basins, streams and records are lost when the process exits. Start
