@@ -12,5 +12,10 @@ Shared UI for the S2 dashboard: basin, stream and Studio views used by
 pnpm install
 pnpm typecheck
 pnpm lint
+pnpm test
 pnpm build
 ```
+
+The regression tests cover pagination and account changes, Studio stream isolation,
+encryption metadata and copied requests, append preconditions, selector errors,
+file input modes, and theme preferences when browser storage is unavailable.

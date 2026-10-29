@@ -6,6 +6,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Check, ChevronDown, Loader2 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { toast } from '../ui/use-toast';
 import { fetchStreamsData } from './api';
 import { useDashboardHost } from './dashboard-host';
 import type { StreamInfo } from '@s2-dev/streamstore';
@@ -25,12 +26,13 @@ export function StreamCombobox({
   onValueChange,
   disabled,
 }: StreamComboboxProps) {
-  const { getClient } = useDashboardHost();
+  const { getClient, scopeKey } = useDashboardHost();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [streams, setStreams] = useState<StreamInfo[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestRequestIdRef = useRef(0);
@@ -42,9 +44,10 @@ export function StreamCombobox({
     async (prefix: string, after: string, replace: boolean) => {
       const requestId = ++latestRequestIdRef.current;
       setIsLoading(true);
+      setError(null);
       try {
         const s2 = await getClient();
-        if (s2 === null) return;
+        if (s2 === null) throw new Error('No auth token found');
         if (latestRequestIdRef.current !== requestId) return;
         const res = await fetchStreamsData(s2, {
           basinId,
@@ -57,6 +60,20 @@ export function StreamCombobox({
           replace ? res.streams : [...prev, ...res.streams]
         );
         setHasMore(res.hasMore);
+      } catch (error) {
+        if (latestRequestIdRef.current !== requestId) return;
+        const message =
+          error instanceof Error ? error.message : 'Unknown error occurred';
+        if (replace) {
+          setStreams([]);
+          setHasMore(false);
+        }
+        setError(message);
+        toast({
+          title: 'Error loading streams',
+          description: message,
+          variant: 'destructive',
+        });
       } finally {
         if (latestRequestIdRef.current === requestId) {
           setIsLoading(false);
@@ -74,7 +91,7 @@ export function StreamCombobox({
       void fetchPage('', '', true);
       setTimeout(() => inputRef.current?.focus(), 0);
     }
-  }, [open, fetchPage]);
+  }, [open, fetchPage, scopeKey]);
 
   useEffect(() => {
     if (!open) return;
@@ -88,9 +105,10 @@ export function StreamCombobox({
       void fetchPage(search, '', true);
     }, 300);
     return () => {
+      latestRequestIdRef.current++;
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [search, open, fetchPage]);
+  }, [search, open, fetchPage, scopeKey]);
 
   const loadMore = () => {
     const lastItem = streams.at(-1)?.name ?? '';
@@ -128,11 +146,16 @@ export function StreamCombobox({
           />
         </div>
         <div className="max-h-[280px] overflow-y-auto">
+          {error && (
+            <p role="alert" className="text-destructive px-3 py-2 text-xs">
+              {error}
+            </p>
+          )}
           {isLoading && streams.length === 0 ? (
             <div className="flex justify-center py-4">
               <Loader2 className="text-muted-foreground h-4 w-4 animate-spin" />
             </div>
-          ) : streams.length === 0 ? (
+          ) : streams.length === 0 && !error ? (
             <p className="text-muted-foreground px-3 py-4 text-center text-xs">
               No streams found
             </p>

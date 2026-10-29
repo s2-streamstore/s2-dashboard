@@ -1,3 +1,5 @@
+'use client';
+
 import { Button } from '../ui/button';
 import { Plus } from 'lucide-react';
 import * as motion from 'motion/react-client';

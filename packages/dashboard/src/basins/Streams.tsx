@@ -2,7 +2,7 @@
 import { Button } from '../ui/button';
 import { fetchStreamsData, getBasinConfig } from './api';
 import { ArrowLeft, Plus, SquareTerminal, Trash2, X } from 'lucide-react';
-import { useQuery } from 'react-query';
+import { useInfiniteQuery, useQuery } from 'react-query';
 import Loading from '../components/Loading';
 import EmptyList from '../components/EmptyList';
 import { toast } from '../ui/use-toast';
@@ -14,7 +14,6 @@ import { Input } from '../ui/input';
 import {
   S2Error,
   type StreamConfig,
-  type StreamInfo,
   type ListStreamsResponse,
 } from '@s2-dev/streamstore';
 import DeleteStreamDialog from './DeleteStream';
@@ -24,13 +23,16 @@ import { useDashboardHost } from './dashboard-host';
 
 const STREAMS_PER_PAGE = 25;
 
-export default function Streams() {
+export default function Streams(): JSX.Element {
+  const { scopeKey, route } = useDashboardHost();
+  return <StreamsList key={JSON.stringify([scopeKey, route.basinId])} />;
+}
+
+function StreamsList(): JSX.Element {
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-  const [localStreams, setLocalStreams] = useState<StreamInfo[]>([]);
   const [createEditStreamFormOpen, setCreateEditStreamFormOpen] =
     useState(false);
-  const [prevPrefix, setPrevPrefix] = useState<string | undefined>(undefined);
   const [selectedStreams, setSelectedStreams] = useState<string[]>([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const { getClient, scopeKey, slots, route, navigate, Link } =
@@ -39,49 +41,31 @@ export default function Streams() {
   const { pathname } = route;
   const isBasinsRoute = isDashboardSection(pathname, 'basins');
 
-  const [requestParams, setRequestParams] = useState<{
-    basinId: string;
-    startAfter?: string;
-    limit?: number;
-    prefix?: string;
-  }>({
-    // Seed from the route so the first query uses the real key; starting from
-    // '' and correcting in an effect churned the query key on every mount.
-    basinId: route.basinId ?? '',
-    startAfter: '',
-    limit: STREAMS_PER_PAGE,
-  });
-
+  const basinId = route.basinId ?? '';
   const isMobile = useIsMobile(1280, true);
-
-  const {
-    data: streamsResponse,
-    isLoading,
-    error,
-  } = useQuery(
-    ['streams', requestParams, scopeKey, debouncedSearchTerm],
-    async (): Promise<ListStreamsResponse> => {
-      if (!requestParams.basinId) {
-        return { streams: [], hasMore: false };
-      }
-      const s2 = await getClient();
-      if (s2 === null) {
-        toast({
-          title: 'Error fetching streams',
-          description: 'No auth token found',
-          variant: 'destructive',
+  const { data, isLoading, isFetching, hasNextPage, fetchNextPage, error } =
+    useInfiniteQuery(
+      ['streams', scopeKey, basinId, debouncedSearchTerm],
+      async ({ pageParam = '' }): Promise<ListStreamsResponse> => {
+        const s2 = await getClient();
+        if (s2 === null) throw new Error('No auth token found');
+        return fetchStreamsData(s2, {
+          basinId,
+          prefix: debouncedSearchTerm || undefined,
+          startAfter: pageParam,
+          limit: STREAMS_PER_PAGE,
         });
-        return { streams: [], hasMore: false };
+      },
+      {
+        enabled: Boolean(basinId),
+        getNextPageParam: (page) =>
+          page.hasMore ? page.streams.at(-1)?.name : undefined,
+        refetchOnWindowFocus: false,
+        refetchOnMount: false,
+        refetchOnReconnect: false,
       }
-      return await fetchStreamsData(s2, requestParams);
-    },
-    {
-      keepPreviousData: true,
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  );
+    );
+  const localStreams = data?.pages.flatMap((page) => page.streams) ?? [];
 
   const { data: defaultStreamConfig, error: basinConfigError } = useQuery(
     ['basin-config', scopeKey, route.basinId],
@@ -103,40 +87,6 @@ export default function Streams() {
   const basinNotFound =
     basinConfigError instanceof S2Error && basinConfigError.status === 404;
 
-  // Update localStreams during render when streamsResponse changes, avoiding
-  // setState-in-effect. Gating on the response reference prevents stale-data
-  // accumulation while keepPreviousData holds the prior page during a fetch.
-  const [prevStreamsResponse, setPrevStreamsResponse] = useState<
-    ListStreamsResponse | undefined
-  >(undefined);
-  if (streamsResponse !== prevStreamsResponse && streamsResponse?.streams) {
-    setPrevStreamsResponse(streamsResponse);
-    const isReset =
-      requestParams.startAfter === '' || requestParams.prefix !== prevPrefix;
-    setLocalStreams(
-      isReset
-        ? streamsResponse.streams
-        : [...localStreams, ...streamsResponse.streams]
-    );
-    setPrevPrefix(requestParams.prefix);
-  }
-
-  useEffect(() => {
-    if (
-      route.basinId !== undefined &&
-      route.basinId !== requestParams.basinId
-    ) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setRequestParams({
-        startAfter: '',
-        limit: STREAMS_PER_PAGE,
-        basinId: route.basinId,
-      });
-      setLocalStreams([]);
-      setSelectedStreams([]);
-    }
-  }, [route.basinId, requestParams.basinId]);
-
   useEffect(() => {
     if (error) {
       toast({
@@ -155,32 +105,6 @@ export default function Streams() {
 
     return () => clearTimeout(timer);
   }, [searchTerm]);
-
-  // Skipped when the prefix already matches (notably the mount-time run with
-  // an empty search box): rewriting the params anyway changed the query key
-  // and wiped the local list, refetching and flashing the spinner on every
-  // remount.
-  const activePrefix = requestParams.prefix ?? '';
-  useEffect(() => {
-    if (debouncedSearchTerm === activePrefix) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setRequestParams((prev) => ({
-      ...prev,
-      prefix: debouncedSearchTerm,
-      startAfter: '',
-    }));
-    setLocalStreams([]);
-  }, [debouncedSearchTerm, activePrefix]);
-
-  const handleLoadMore = (): void => {
-    if (localStreams.length > 0) {
-      const lastStreamId = localStreams[localStreams.length - 1].name;
-      setRequestParams((prev) => ({
-        ...prev,
-        startAfter: lastStreamId,
-      }));
-    }
-  };
 
   return (
     <aside className="bg-background w-full max-w-4xl flex-1 space-y-2 [&:not(:only-child)]:sticky [&:not(:only-child)]:top-14 [&:not(:only-child)]:-mr-4 [&:not(:only-child)]:-mb-4 [&:not(:only-child)]:h-[calc(100vh-56px)] [&:not(:only-child)]:max-h-[calc(100vh-56px)] [&:not(:only-child)]:overflow-y-auto [&:not(:only-child)]:border-l [&:not(:only-child)]:p-4 [&:not(:only-child)]:pb-0">
@@ -287,14 +211,14 @@ export default function Streams() {
                     data={localStreams}
                     onSelectedStreamsChange={setSelectedStreams}
                   />
-                  {streamsResponse && streamsResponse.hasMore && (
+                  {hasNextPage && (
                     <Button
                       variant="outline"
-                      onClick={handleLoadMore}
-                      disabled={isLoading}
+                      onClick={() => void fetchNextPage()}
+                      disabled={isFetching}
                       className="w-full"
                     >
-                      {isLoading ? 'Loading...' : 'Load More'}
+                      {isFetching ? 'Loading...' : 'Load More'}
                     </Button>
                   )}
                 </>
@@ -317,11 +241,11 @@ export default function Streams() {
               </TabsContent>
             )}
           </Tabs>
-          {createEditStreamFormOpen && requestParams.basinId && (
+          {createEditStreamFormOpen && basinId && (
             <CreateEditStreamDialog
               data={null}
               defaultConfig={defaultStreamConfig}
-              basinId={requestParams.basinId}
+              basinId={basinId}
               onClose={() => {
                 setCreateEditStreamFormOpen(false);
               }}

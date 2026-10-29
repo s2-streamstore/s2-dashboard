@@ -14,7 +14,6 @@ import {
   ReadInput,
   ReadLimits,
   RangeNotSatisfiableError,
-  S2Error,
   StreamPosition,
 } from '@s2-dev/streamstore';
 import { useQuery } from 'react-query';
@@ -71,13 +70,13 @@ import {
   parseUTCTimestamp,
   toUTCDateTimeValue,
 } from '../lib/date-time';
-import { shellQuote } from '../lib/shell';
+import { buildReadCurlCommand, buildAppendCurlCommand } from './studio-curl';
+import { parseMatchSeqNum } from './studio-input';
 import {
   appendToStream,
   checkStreamTail,
   fenceStream,
   fetchStreamsData,
-  getStreamConfig,
   openReadSession,
   readStreamBatch,
   trimStream,
@@ -181,27 +180,8 @@ function formatTimestampDisplay(value: string): string {
   return formatUTCDateTime(parsed);
 }
 
-function toAbsoluteEndpoint(endpoint: string): string {
-  return /^https?:\/\//i.test(endpoint) ? endpoint : `https://${endpoint}`;
-}
-
 function toEpochMillis(value: number | Date): number {
   return value instanceof Date ? value.getTime() : value;
-}
-
-function makeReadBaseUrl(
-  basinName: string,
-  basinTemplate = '{basin}.b.s2.dev'
-): string {
-  const endpoint = basinTemplate.includes('{basin}')
-    ? basinTemplate.replace('{basin}', basinName)
-    : basinTemplate;
-
-  const parsed = new URL(toAbsoluteEndpoint(endpoint));
-  if (!parsed.pathname || parsed.pathname === '/') {
-    parsed.pathname = '/v1';
-  }
-  return parsed.toString().replace(/\/$/, '');
 }
 
 function describeReadFrom(from: ReadFrom | undefined): string {
@@ -214,117 +194,6 @@ function describeReadFrom(from: ReadFrom | undefined): string {
   return 'the requested start';
 }
 
-function buildReadQueryParams(input: ReadInput): URLSearchParams {
-  const params = new URLSearchParams();
-
-  if (input.start?.from) {
-    if ('seqNum' in input.start.from) {
-      params.set('seq_num', String(input.start.from.seqNum));
-    } else if ('timestamp' in input.start.from) {
-      params.set(
-        'timestamp',
-        String(toEpochMillis(input.start.from.timestamp))
-      );
-    } else if ('tailOffset' in input.start.from) {
-      params.set('tail_offset', String(input.start.from.tailOffset));
-    }
-  }
-
-  if (input.start?.clamp !== undefined) {
-    params.set('clamp', String(input.start.clamp));
-  }
-
-  if (input.stop?.limits?.count !== undefined) {
-    params.set('count', String(input.stop.limits.count));
-  }
-
-  if (input.stop?.limits?.bytes !== undefined) {
-    params.set('bytes', String(input.stop.limits.bytes));
-  }
-
-  if (input.stop?.untilTimestamp !== undefined) {
-    params.set('until', String(toEpochMillis(input.stop.untilTimestamp)));
-  }
-
-  if (input.stop?.waitSecs !== undefined) {
-    params.set('wait', String(input.stop.waitSecs));
-  }
-
-  return params;
-}
-
-function buildReadCurlCommand(
-  basinName: string,
-  streamName: string,
-  input: ReadInput,
-  streaming: boolean,
-  token?: string,
-  basinEndpoint?: string
-): string {
-  const baseUrl = makeReadBaseUrl(basinName, basinEndpoint);
-  const url = new URL(
-    `${baseUrl}/streams/${encodeURIComponent(streamName)}/records`
-  );
-  const params = buildReadQueryParams(input);
-  if (params.toString()) {
-    url.search = params.toString();
-  }
-
-  const authorizationHeader = token
-    ? shellQuote(`Authorization: Bearer ${token}`)
-    : '"Authorization: Bearer ${S2_ACCESS_TOKEN}"';
-
-  const basinHeader = shellQuote(`s2-basin: ${basinName}`);
-
-  if (streaming) {
-    return `curl -N \\
-  -H ${authorizationHeader} \\
-  -H ${basinHeader} \\
-  -H "Accept: text/event-stream" \\
-  "${url.toString()}"`;
-  }
-
-  return `curl \\
-  -H ${authorizationHeader} \\
-  -H ${basinHeader} \\
-  "${url.toString()}"`;
-}
-
-function buildAppendCurlCommand(
-  basinName: string,
-  streamName: string,
-  input: StudioAppendInput,
-  token?: string,
-  basinEndpoint?: string
-): string {
-  const baseUrl = makeReadBaseUrl(basinName, basinEndpoint);
-  const url = `${baseUrl}/streams/${encodeURIComponent(streamName)}/records`;
-
-  const authorizationHeader = token
-    ? shellQuote(`Authorization: Bearer ${token}`)
-    : '"Authorization: Bearer ${S2_ACCESS_TOKEN}"';
-
-  const body = JSON.stringify({
-    records: input.records.map((record) => ({
-      body: record.body,
-      ...(record.headers ? { headers: record.headers } : {}),
-    })),
-    ...(input.matchSeqNum !== undefined
-      ? { match_seq_num: input.matchSeqNum }
-      : {}),
-    ...(input.fencingToken !== undefined
-      ? { fencing_token: input.fencingToken }
-      : {}),
-  });
-
-  return `curl -X POST \\
-  -H ${authorizationHeader} \\
-  -H ${shellQuote(`s2-basin: ${basinName}`)} \\
-  -H "Content-Type: application/json" \\
-  --data ${shellQuote(body)} \\
-  "${url}"`;
-}
-
 function decodeQueryParam(value: string): string {
   try {
     return decodeURIComponent(value);
@@ -333,7 +202,14 @@ function decodeQueryParam(value: string): string {
   }
 }
 
-export default function Studio() {
+export default function Studio(): JSX.Element {
+  const { scopeKey, route } = useDashboardHost();
+  // Hosts may reuse the view across routes. Do not carry reads, keys or pending
+  // destructive actions into a different account or basin.
+  return <StudioSession key={JSON.stringify([scopeKey, route.basinId])} />;
+}
+
+function StudioSession(): JSX.Element | null {
   const { getToken, getClient, endpoints, scopeKey, route, navigate } =
     useDashboardHost();
   const { searchParams } = route;
@@ -385,8 +261,7 @@ export default function Studio() {
   const recordViewRef = useRef<RecordViewHandle | null>(null);
   const streamAbortControllerRef = useRef<AbortController | null>(null);
   const previousStreamRef = useRef<string>('');
-  const validatingUrlStreamRef = useRef<string | null>(null);
-  const latestUrlStreamParamRef = useRef<string | null>(null);
+  const sessionAbortRef = useRef(new AbortController());
 
   const resolveToken = useCallback(async (): Promise<string | null> => {
     return await getToken();
@@ -424,14 +299,40 @@ export default function Studio() {
     () => streamsResponse?.streams ?? [],
     [streamsResponse]
   );
-  const selectedStreamInfo = useMemo(
-    () => streams.find((stream) => stream.name === selectedStream),
-    [streams, selectedStream]
+  const { data: selectedStreamInfo, refetch: refetchSelectedStream } = useQuery(
+    ['studio-stream', scopeKey, basinId, selectedStream],
+    async () => {
+      const s2 = await getClient();
+      if (s2 === null) throw new Error('No auth token found');
+      // StreamConfig does not include the cipher. An exact prefix lookup finds
+      // metadata even when the selected stream is beyond the first list page.
+      const result = await fetchStreamsData(s2, {
+        basinId,
+        prefix: selectedStream,
+        limit: 1,
+      });
+      return (
+        result.streams.find((stream) => stream.name === selectedStream) ?? null
+      );
+    },
+    {
+      enabled: Boolean(basinId && selectedStream),
+      initialData: streams.find((stream) => stream.name === selectedStream),
+      refetchOnWindowFocus: false,
+      retry: false,
+      onError: (error: unknown) => {
+        toast({
+          title: 'Error loading selected stream',
+          description:
+            error instanceof Error ? error.message : 'Unknown error occurred',
+          variant: 'destructive',
+        });
+      },
+    }
   );
 
   useEffect(() => {
     const streamFromUrlParam = searchParams.get('stream');
-    latestUrlStreamParamRef.current = streamFromUrlParam;
     if (streamFromUrlParam) {
       const decodedStreamFromUrl = decodeQueryParam(streamFromUrlParam);
       const requestedStream =
@@ -443,68 +344,19 @@ export default function Studio() {
         queueMicrotask(() => setSelectedStream(requestedStream));
       }
 
-      if (streams.some((stream) => stream.name === requestedStream)) {
-        return;
+      if (selectedStream === requestedStream && selectedStreamInfo === null) {
+        const fallbackStream = streams[0]?.name ?? '';
+        const nextParams = new URLSearchParams(searchParams.toString());
+        if (fallbackStream) nextParams.set('stream', fallbackStream);
+        else nextParams.delete('stream');
+        const queryString = nextParams.toString();
+        navigate(
+          `/dashboard/basins/${encodeURIComponent(basinId)}/studio${queryString ? `?${queryString}` : ''}`,
+          { replace: true, scroll: false }
+        );
       }
-
-      if (streams.length === 0) {
-        return;
-      }
-
-      if (validatingUrlStreamRef.current === requestedStream) {
-        return;
-      }
-
-      validatingUrlStreamRef.current = requestedStream;
-      void (async () => {
-        try {
-          const s2 = await getClient();
-          if (s2 === null) {
-            return;
-          }
-
-          await getStreamConfig(basinId, requestedStream, s2);
-        } catch (error: unknown) {
-          const isNotFoundError =
-            error instanceof S2Error &&
-            (error.status === 404 ||
-              error.code?.toUpperCase().includes('NOT_FOUND'));
-          if (!isNotFoundError) {
-            return;
-          }
-
-          if (latestUrlStreamParamRef.current !== streamFromUrlParam) {
-            return;
-          }
-
-          const fallbackStream = streams[0]?.name ?? '';
-          if (selectedStream !== fallbackStream) {
-            setSelectedStream(fallbackStream);
-          }
-
-          const nextParams = new URLSearchParams(searchParams.toString());
-          if (fallbackStream) {
-            nextParams.set('stream', fallbackStream);
-          } else {
-            nextParams.delete('stream');
-          }
-
-          const queryString = nextParams.toString();
-          navigate(
-            `/dashboard/basins/${encodeURIComponent(basinId)}/studio${queryString ? `?${queryString}` : ''}`,
-            { replace: true, scroll: false }
-          );
-        } finally {
-          if (validatingUrlStreamRef.current === requestedStream) {
-            validatingUrlStreamRef.current = null;
-          }
-        }
-      })();
-
       return;
     }
-
-    latestUrlStreamParamRef.current = null;
 
     if (streams.length === 0) {
       if (selectedStream !== '') {
@@ -519,7 +371,14 @@ export default function Studio() {
     ) {
       queueMicrotask(() => setSelectedStream(streams[0].name));
     }
-  }, [basinId, getClient, navigate, searchParams, selectedStream, streams]);
+  }, [
+    basinId,
+    navigate,
+    searchParams,
+    selectedStream,
+    selectedStreamInfo,
+    streams,
+  ]);
 
   const updateStreamInUrl = (streamName: string) => {
     const nextParams = new URLSearchParams(searchParams.toString());
@@ -616,6 +475,12 @@ export default function Studio() {
   }, []);
 
   useEffect(() => {
+    const controller = new AbortController();
+    sessionAbortRef.current = controller;
+    return () => controller.abort();
+  }, [selectedStream]);
+
+  useEffect(() => {
     if (previousStreamRef.current === selectedStream) {
       return;
     }
@@ -626,6 +491,15 @@ export default function Studio() {
     recordViewRef.current?.clear();
     setRecordsReceived(0);
     setStreamStartedAtMs(null);
+    setLastRecordAtMs(null);
+    setAppendMatchSeqNum('');
+    setAppendFencingToken('');
+    setTrimConfirmSeqNum(null);
+    setTrimSeqNum('');
+    setNextFenceToken('');
+    setAppending(false);
+    setRunningCommand(false);
+    setTailLoading(false);
     setLastAppendAck(null);
     setLastCommandAck(null);
     setTailInfo(undefined);
@@ -639,7 +513,9 @@ export default function Studio() {
       return;
     }
 
+    const signal = sessionAbortRef.current.signal;
     const s2 = await getClient();
+    if (signal.aborted) return;
     if (s2 === null) {
       toast({
         title: 'Unable to check tail',
@@ -652,15 +528,16 @@ export default function Studio() {
     setTailLoading(true);
     try {
       const response = await checkStreamTail(s2, basinId, selectedStream);
-      setTailInfo(response.tail);
+      if (!signal.aborted) setTailInfo(response.tail);
     } catch (error) {
+      if (signal.aborted) return;
       toast({
         title: 'Failed to check tail',
         description: error instanceof Error ? error.message : 'Unknown error',
         variant: 'destructive',
       });
     } finally {
-      setTailLoading(false);
+      if (!signal.aborted) setTailLoading(false);
     }
   }, [basinId, getClient, selectedStream]);
 
@@ -683,7 +560,9 @@ export default function Studio() {
       return;
     }
 
+    const signal = sessionAbortRef.current.signal;
     const s2 = await getClient();
+    if (signal.aborted) return;
     if (s2 === null) {
       toast({
         title: 'Unable to read stream',
@@ -712,6 +591,7 @@ export default function Studio() {
         input,
         encryptionKey.trim() || undefined
       );
+      if (signal.aborted) return;
       response.records.forEach((record) => {
         recordViewRef.current?.addRecord({
           seqNum: record.seqNum,
@@ -732,6 +612,7 @@ export default function Studio() {
         setTailInfo(response.tail);
       }
     } catch (error) {
+      if (signal.aborted) return;
       if (
         error instanceof RangeNotSatisfiableError &&
         error.tail &&
@@ -774,7 +655,8 @@ export default function Studio() {
       input,
       streaming,
       curlToken,
-      endpoints?.basin
+      endpoints?.basin,
+      encryptionKey
     );
 
     writeCurlToClipboard(
@@ -809,7 +691,8 @@ export default function Studio() {
         selectedStream,
         input,
         curlToken,
-        endpoints?.basin
+        endpoints?.basin,
+        encryptionKey
       ),
       'append',
       setAppendCurlCopied
@@ -846,7 +729,9 @@ export default function Studio() {
       return;
     }
 
+    const signal = sessionAbortRef.current.signal;
     const s2 = await getClient();
+    if (signal.aborted) return;
     if (s2 === null) {
       toast({
         title: 'Unable to start streaming',
@@ -881,6 +766,7 @@ export default function Studio() {
       );
 
       for await (const value of session) {
+        if (streamAbortController.signal.aborted || signal.aborted) break;
         recordViewRef.current?.addRecord({
           seqNum: value.seqNum,
           timestamp: value.timestamp,
@@ -909,7 +795,7 @@ export default function Studio() {
         streamAbortControllerRef.current = null;
         setIsStreaming(false);
       }
-      void refreshTail();
+      if (!signal.aborted) void refreshTail();
     }
   };
 
@@ -958,13 +844,10 @@ export default function Studio() {
   };
 
   const buildAppendInput = (): StudioAppendInput => {
-    const parsedMatchSeqNum = Number.parseInt(appendMatchSeqNum, 10);
+    const matchSeqNum = parseMatchSeqNum(appendMatchSeqNum);
     return {
       records: parseAppendRecords(),
-      matchSeqNum:
-        appendMatchSeqNum.trim() && !Number.isNaN(parsedMatchSeqNum)
-          ? parsedMatchSeqNum
-          : undefined,
+      matchSeqNum,
       fencingToken: appendFencingToken.trim() || undefined,
     };
   };
@@ -974,7 +857,9 @@ export default function Studio() {
       return;
     }
 
+    const signal = sessionAbortRef.current.signal;
     const s2 = await getClient();
+    if (signal.aborted) return;
     if (s2 === null) {
       toast({
         title: 'Unable to append',
@@ -997,6 +882,7 @@ export default function Studio() {
         encryptionKey.trim() || undefined
       );
 
+      if (signal.aborted) return;
       setLastAppendAck(ack);
       toast({
         title: 'Append successful',
@@ -1004,13 +890,14 @@ export default function Studio() {
       });
       void refreshTail();
     } catch (error) {
+      if (signal.aborted) return;
       toast({
         title: 'Append failed',
         description: error instanceof Error ? error.message : 'Unknown error',
         variant: 'destructive',
       });
     } finally {
-      setAppending(false);
+      if (!signal.aborted) setAppending(false);
     }
   };
 
@@ -1030,6 +917,8 @@ export default function Studio() {
         file.name.endsWith('.ndjson')
       ) {
         setAppendMode('lines');
+      } else {
+        setAppendMode('single');
       }
       toast({
         title: 'File loaded',
@@ -1070,7 +959,9 @@ export default function Studio() {
 
     const seqNum = trimConfirmSeqNum;
 
+    const signal = sessionAbortRef.current.signal;
     const s2 = await getClient();
+    if (signal.aborted) return;
     if (s2 === null) {
       toast({
         title: 'Unable to trim stream',
@@ -1091,6 +982,7 @@ export default function Studio() {
         appendFencingToken.trim() || undefined,
         encryptionKey.trim() || undefined
       );
+      if (signal.aborted) return;
       setLastCommandAck(ack);
       toast({
         title: 'Trim command submitted',
@@ -1099,13 +991,14 @@ export default function Studio() {
       void refreshTail();
       setTrimConfirmSeqNum(null);
     } catch (error) {
+      if (signal.aborted) return;
       toast({
         title: 'Trim failed',
         description: error instanceof Error ? error.message : 'Unknown error',
         variant: 'destructive',
       });
     } finally {
-      setRunningCommand(false);
+      if (!signal.aborted) setRunningCommand(false);
     }
   };
 
@@ -1123,7 +1016,9 @@ export default function Studio() {
       return;
     }
 
+    const signal = sessionAbortRef.current.signal;
     const s2 = await getClient();
+    if (signal.aborted) return;
     if (s2 === null) {
       toast({
         title: 'Unable to fence stream',
@@ -1143,6 +1038,7 @@ export default function Studio() {
         appendFencingToken.trim() || undefined,
         encryptionKey.trim() || undefined
       );
+      if (signal.aborted) return;
       setLastCommandAck(ack);
       toast({
         title: 'Fence command submitted',
@@ -1152,13 +1048,14 @@ export default function Studio() {
       setNextFenceToken('');
       void refreshTail();
     } catch (error) {
+      if (signal.aborted) return;
       toast({
         title: 'Fence failed',
         description: error instanceof Error ? error.message : 'Unknown error',
         variant: 'destructive',
       });
     } finally {
-      setRunningCommand(false);
+      if (!signal.aborted) setRunningCommand(false);
     }
   };
 
@@ -1287,6 +1184,7 @@ export default function Studio() {
           className="h-7 w-7 p-0 sm:ml-auto"
           onClick={() => {
             void refetchStreams();
+            if (selectedStream) void refetchSelectedStream();
             void refreshTail();
           }}
           disabled={tailLoading}
@@ -1809,6 +1707,7 @@ export default function Studio() {
                         </Tooltip>
                         <Input
                           className="border-border/50 h-8"
+                          aria-label="Match sequence number"
                           value={appendMatchSeqNum}
                           onChange={(e) => setAppendMatchSeqNum(e.target.value)}
                           placeholder="optional"

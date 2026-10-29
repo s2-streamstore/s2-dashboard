@@ -1,14 +1,10 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { useQuery } from 'react-query';
+import { useInfiniteQuery } from 'react-query';
 import { motion } from 'motion/react';
 import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '../ui/button';
-import {
-  BasinInfo,
-  ListBasinsInput,
-  ListBasinsResponse,
-} from '@s2-dev/streamstore';
+import { ListBasinsResponse } from '@s2-dev/streamstore';
 import Loading from '../components/Loading';
 import CreateEditBasin from './CreateEditBasin';
 import { fetchBasinsData } from './api';
@@ -24,63 +20,41 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 const BASINS_PER_PAGE = 25;
 
 export default function Basins(): JSX.Element {
+  const { scopeKey } = useDashboardHost();
+  return <BasinsList key={JSON.stringify(scopeKey)} />;
+}
+
+function BasinsList(): JSX.Element {
   const { getClient, scopeKey, slots, route } = useDashboardHost();
   const PrivateConnectivity = slots?.PrivateConnectivity;
   const isMobile = useIsMobile(1280, true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [localBasins, setLocalBasins] = useState<BasinInfo[]>([]);
   const [createEditBasinFormOpen, setCreateEditBasinFormOpen] = useState(false);
-  const [prevPrefix, setPrevPrefix] = useState<string | undefined>(undefined);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedBasins, setSelectedBasins] = useState<string[]>([]);
 
-  const [requestParams, setRequestParams] = useState<ListBasinsInput>({
-    startAfter: '',
-    limit: BASINS_PER_PAGE,
-  });
-
-  const {
-    data: basinsResponse,
-    isLoading,
-    error,
-  } = useQuery(
-    ['basins', scopeKey, requestParams],
-    async (): Promise<ListBasinsResponse> => {
-      const s2 = await getClient();
-      if (s2 === null) {
-        toast({
-          title: 'Error fetching basins',
-          description: 'No auth token found',
-          variant: 'destructive',
+  const [prefix, setPrefix] = useState('');
+  const { data, isLoading, isFetching, hasNextPage, fetchNextPage, error } =
+    useInfiniteQuery(
+      ['basins', scopeKey, prefix],
+      async ({ pageParam = '' }): Promise<ListBasinsResponse> => {
+        const s2 = await getClient();
+        if (s2 === null) throw new Error('No auth token found');
+        return fetchBasinsData(s2, {
+          prefix: prefix || undefined,
+          startAfter: pageParam,
+          limit: BASINS_PER_PAGE,
         });
-        return { basins: [], hasMore: false };
+      },
+      {
+        getNextPageParam: (page) =>
+          page.hasMore ? page.basins.at(-1)?.name : undefined,
+        refetchOnWindowFocus: false,
+        refetchOnMount: false,
+        refetchOnReconnect: false,
       }
-      return await fetchBasinsData(s2, requestParams);
-    },
-    {
-      keepPreviousData: true,
-      refetchOnWindowFocus: false,
-      refetchOnMount: false,
-      refetchOnReconnect: false,
-    }
-  );
-
-  // Update localBasins during render when basinsResponse changes, avoiding setState-in-effect.
-  // React explicitly supports this "update state during render" pattern for derived/accumulated state.
-  const [prevBasinsResponse, setPrevBasinsResponse] = useState<
-    ListBasinsResponse | undefined
-  >(undefined);
-  if (basinsResponse !== prevBasinsResponse && basinsResponse?.basins) {
-    setPrevBasinsResponse(basinsResponse);
-    const isReset =
-      requestParams.startAfter === '' || requestParams.prefix !== prevPrefix;
-    setLocalBasins(
-      isReset
-        ? basinsResponse.basins
-        : [...localBasins, ...basinsResponse.basins]
     );
-    setPrevPrefix(requestParams.prefix);
-  }
+  const localBasins = data?.pages.flatMap((page) => page.basins) ?? [];
 
   useEffect(() => {
     if (error) {
@@ -93,26 +67,10 @@ export default function Basins(): JSX.Element {
     }
   }, [error]);
 
-  // Debounce search and update requestParams directly inside the timer callback
-  // (async — not synchronous in the effect body, so setState calls are allowed).
-  // Skipped when the prefix already matches (notably the mount-time run with
-  // an empty search box): rewriting the params anyway changed the query key
-  // and wiped the local list, refetching and flashing the spinner on every
-  // remount.
-  const activePrefix = requestParams.prefix ?? '';
   useEffect(() => {
-    if (searchTerm === activePrefix) return;
-    const timer = setTimeout(() => {
-      setRequestParams((prev) => ({
-        ...prev,
-        prefix: searchTerm,
-        startAfter: '',
-      }));
-      setLocalBasins([]);
-    }, 300);
-
+    const timer = setTimeout(() => setPrefix(searchTerm), 300);
     return () => clearTimeout(timer);
-  }, [searchTerm, activePrefix]);
+  }, [searchTerm]);
 
   if (isMobile && route.basinId) {
     return <></>;
@@ -121,21 +79,11 @@ export default function Basins(): JSX.Element {
   // Wait for connection strings on the first paint too, so the tab decision is
   // settled before render and the Private Connectivity tab doesn't pop in after
   // the basin list. react-query clears isLoading on error, so this can't hang.
-  if (isLoading && localBasins.length === 0 && !requestParams.prefix?.length) {
+  if (isLoading && localBasins.length === 0 && !prefix.length) {
     return <Loading />;
   }
 
-  const handleLoadMore = (): void => {
-    if (localBasins.length > 0) {
-      const lastAccessTokenId = localBasins[localBasins.length - 1].name;
-      setRequestParams((prev) => ({
-        ...prev,
-        startAfter: lastAccessTokenId,
-      }));
-    }
-  };
-
-  const hasActiveSearch = !!requestParams.prefix?.length;
+  const hasActiveSearch = prefix.length > 0;
 
   const basinsList = (
     <div className="space-y-2">
@@ -153,14 +101,14 @@ export default function Basins(): JSX.Element {
             data={localBasins}
             onSelectedBasinsChange={setSelectedBasins}
           />
-          {basinsResponse && basinsResponse.hasMore && (
+          {hasNextPage && (
             <Button
               variant="outline"
-              onClick={handleLoadMore}
-              disabled={isLoading}
+              onClick={() => void fetchNextPage()}
+              disabled={isFetching}
               className="w-full"
             >
-              {isLoading ? 'Loading...' : 'Load More'}
+              {isFetching ? 'Loading...' : 'Load More'}
             </Button>
           )}
         </>
