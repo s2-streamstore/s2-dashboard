@@ -79,6 +79,7 @@ const CreateEditBasinDialog = ({
   const queryClient = useQueryClient();
 
   const [basinId, setBasinId] = useState(data?.id || '');
+  const [nameTouched, setNameTouched] = useState(false);
   const [config, setConfig] = useState<BasinConfig>(
     data?.config || {
       createStreamOnAppend: false,
@@ -136,8 +137,15 @@ const CreateEditBasinDialog = ({
       : createBasin(s2, basinId, config, resolveLocation()));
   };
 
+  const nameError = isCreating ? basinNameError(basinId) : null;
+  const showNameError = nameTouched && nameError !== null;
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    setNameTouched(true);
+    if (nameError !== null) {
+      return;
+    }
     setIsAwaiting(true);
     const s2 = await getClient();
     if (s2 === null) {
@@ -217,6 +225,7 @@ const CreateEditBasinDialog = ({
         <TooltipProvider>
           <form
             onSubmit={handleSubmit}
+            noValidate
             className="flex flex-1 flex-col overflow-hidden"
           >
             <div className="[&::-webkit-scrollbar-thumb]:dark:bg-muted-foreground/40 hover:[&::-webkit-scrollbar-thumb]:dark:bg-muted-foreground/60 flex-1 space-y-5 overflow-y-auto pr-3 pl-1 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent">
@@ -225,15 +234,19 @@ const CreateEditBasinDialog = ({
                 <Input
                   id="basinId"
                   type="text"
-                  required
                   value={basinId}
-                  onChange={(e) => setBasinId(e.target.value)}
+                  onChange={(e) => {
+                    setBasinId(e.target.value);
+                    setNameTouched(true);
+                  }}
                   placeholder="Enter basin name"
                   autoComplete="off"
-                  minLength={8}
-                  maxLength={48}
+                  aria-invalid={showNameError}
                   disabled={Boolean(data)}
                 />
+                {showNameError && (
+                  <p className="text-destructive text-xs">{nameError}</p>
+                )}
               </div>
               {isCreating && capabilities.locations && (
                 <div className="space-y-2">
@@ -410,5 +423,20 @@ const CreateEditBasinDialog = ({
     </Dialog>
   );
 };
+
+const BASIN_NAME_PATTERN = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
+
+function basinNameError(name: string): string | null {
+  if (name.length === 0) {
+    return 'Basin name is required.';
+  }
+  if (name.length < 8 || name.length > 48) {
+    return 'Basin name must be 8 to 48 characters.';
+  }
+  if (!BASIN_NAME_PATTERN.test(name)) {
+    return 'Basin name may only contain lowercase letters, numbers, and hyphens, and must start and end with a letter or number.';
+  }
+  return null;
+}
 
 export default CreateEditBasinDialog;
