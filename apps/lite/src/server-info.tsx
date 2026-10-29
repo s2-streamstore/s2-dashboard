@@ -132,7 +132,16 @@ export function ServerPage(): ReactElement {
         </div>
       )}
       <dl className="rounded-md border px-3">
-        <Row label="Version">{data.version}</Row>
+        <Row label="Version">
+          <a
+            href={`https://github.com/s2-streamstore/s2/tree/s2-lite-v${data.version}`}
+            target="_blank"
+            rel="noreferrer"
+            className="hover:underline"
+          >
+            {data.version}
+          </a>
+        </Row>
         <Row label="Started">
           {data.started_at.replace('T', ' ').slice(0, 19)} UTC
         </Row>
@@ -154,6 +163,18 @@ export function ServerPage(): ReactElement {
           {formatBytes(data.append_inflight_bytes)}
         </Row>
       </dl>
+      <p className="text-muted-foreground text-sm">
+        s2-lite is the single-node version of S2. The hosted service is at{' '}
+        <a
+          href="https://s2.dev"
+          target="_blank"
+          rel="noreferrer"
+          className="hover:underline"
+        >
+          s2.dev
+        </a>
+        .
+      </p>
     </div>
   );
 }
