@@ -13,6 +13,7 @@ import {
   ReadFrom,
   ReadInput,
   ReadLimits,
+  RangeNotSatisfiableError,
   S2Error,
   StreamPosition,
 } from '@s2-dev/streamstore';
@@ -200,6 +201,16 @@ function makeReadBaseUrl(
     parsed.pathname = '/v1';
   }
   return parsed.toString().replace(/\/$/, '');
+}
+
+function describeReadFrom(from: ReadFrom | undefined): string {
+  if (from && 'seqNum' in from) {
+    return `seq ${from.seqNum}`;
+  }
+  if (from && 'timestamp' in from) {
+    return `timestamp ${toEpochMillis(from.timestamp)}`;
+  }
+  return 'the requested start';
 }
 
 function buildReadQueryParams(input: ReadInput): URLSearchParams {
@@ -680,6 +691,18 @@ export default function Studio() {
         setTailInfo(response.tail);
       }
     } catch (error) {
+      if (
+        error instanceof RangeNotSatisfiableError &&
+        error.tail &&
+        input.start?.clamp
+      ) {
+        setTailInfo(error.tail);
+        recordViewRef.current?.addStatus(
+          'info',
+          `Start clamped to tail (seq ${error.tail.seqNum}). No records at or after ${describeReadFrom(input.start.from)}.`
+        );
+        return;
+      }
       recordViewRef.current?.addStatus(
         'error',
         error instanceof Error ? error.message : 'Read failed'
