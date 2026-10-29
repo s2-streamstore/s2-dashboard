@@ -8,6 +8,12 @@ import tailwindcss from '@tailwindcss/vite';
 export default defineConfig({
   base: '/dashboard/',
   plugins: [react(), tailwindcss()],
+  // `pnpm dev` against a local s2-lite: `S2_LITE_URL=http://localhost:4243 pnpm dev`
+  server: {
+    proxy: process.env.S2_LITE_URL
+      ? { '/v1': { target: process.env.S2_LITE_URL, changeOrigin: true } }
+      : undefined,
+  },
   build: {
     outDir: 'dist',
     sourcemap: false,

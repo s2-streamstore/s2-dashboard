@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { cn } from '../lib/utils';
-import { formatUTCTime } from '../lib/date-time';
+import { formatUTCTime, formatUTCTimestamp } from '../lib/date-time';
 import { meteredBytes } from '@s2-dev/streamstore';
 
 export interface StreamRecord {
@@ -123,7 +123,7 @@ function RecordItem({ record, defaultExpanded = false }: RecordItemProps) {
     record.timestamp instanceof Date
       ? record.timestamp
       : new Date(Number(record.timestamp));
-  const timeString = formatUTCTime(timestamp);
+  const timeString = formatUTCTimestamp(timestamp);
   const { isJson, formatted } = tryParseJson(record.body);
   const preview =
     record.body.slice(0, 100) + (record.body.length > 100 ? '...' : '');
@@ -171,10 +171,10 @@ function RecordItem({ record, defaultExpanded = false }: RecordItemProps) {
         <span className="text-muted-foreground/60 w-12 shrink-0 text-right font-mono text-xs tabular-nums">
           {seqNum}
         </span>
-        <span className="text-muted-foreground/40 shrink-0 font-mono text-xs tabular-nums">
+        <span className="text-muted-foreground/40 w-[23ch] shrink-0 font-mono text-xs tabular-nums">
           {timeString}
         </span>
-        <div className="flex min-w-0 flex-1 items-center gap-2">
+        <span className="flex w-20 shrink-0 items-center gap-1">
           {isJson && (
             <span
               className="shrink-0 rounded-sm bg-blue-500/10 px-1 py-px text-[10px] font-medium text-blue-700 uppercase dark:text-blue-400"
@@ -199,9 +199,11 @@ function RecordItem({ record, defaultExpanded = false }: RecordItemProps) {
               {record.headers!.length} hdr
             </span>
           )}
-          <span className="text-muted-foreground/30 shrink-0 text-[10px] tabular-nums">
-            {formatBytes(size)}
-          </span>
+        </span>
+        <span className="text-muted-foreground/30 w-10 shrink-0 text-right text-[10px] tabular-nums">
+          {formatBytes(size)}
+        </span>
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           {!isExpanded && (
             <span
               className={cn(
@@ -399,11 +401,17 @@ export const RecordView = forwardRef<RecordViewHandle, RecordViewProps>(
               <span className="text-muted-foreground/70 w-12 shrink-0 text-right font-mono text-[10px] tracking-wide uppercase">
                 seq
               </span>
-              <span className="text-muted-foreground/70 shrink-0 font-mono text-[10px] tracking-wide uppercase">
+              <span className="text-muted-foreground/70 w-[23ch] shrink-0 font-mono text-[10px] tracking-wide uppercase">
                 time
               </span>
-              <span className="text-muted-foreground/70 min-w-0 flex-1 text-[10px] tracking-wide uppercase">
-                badges • size • preview
+              <span className="text-muted-foreground/70 w-20 shrink-0 font-mono text-[10px] tracking-wide uppercase">
+                type
+              </span>
+              <span className="text-muted-foreground/70 w-10 shrink-0 text-right font-mono text-[10px] tracking-wide uppercase">
+                size
+              </span>
+              <span className="text-muted-foreground/70 min-w-0 flex-1 font-mono text-[10px] tracking-wide uppercase">
+                preview
               </span>
               <Button
                 variant="ghost"
@@ -423,7 +431,7 @@ export const RecordView = forwardRef<RecordViewHandle, RecordViewProps>(
                 </div>
                 <div>
                   <span className="text-foreground/80 font-mono">time</span> =
-                  record timestamp.
+                  record timestamp (UTC).
                 </div>
                 <div>
                   <span className="rounded-sm bg-blue-500/10 px-1 py-px text-[10px] font-medium text-blue-700 uppercase dark:text-blue-400">

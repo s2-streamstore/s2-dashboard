@@ -12,6 +12,11 @@ export function formatUTCDateTime(input: Date | string | number): string {
   });
 }
 
+export function formatUTCTimestamp(input: Date | string | number): string {
+  const iso = new Date(input).toISOString();
+  return `${iso.slice(0, 10)} ${iso.slice(11, 19)} UTC`;
+}
+
 export function formatUTCTime(input: Date | string | number): string {
   return new Date(input).toLocaleTimeString('en-US', {
     hour: '2-digit',
