@@ -216,7 +216,7 @@ const TableStreams = ({ data, onSelectedStreamsChange }: TableStreamsProps) => {
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
-                          className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                          className="text-destructive focus:bg-destructive/10 focus:text-destructive dark:text-red-400 dark:focus:text-red-400"
                           onClick={() => {
                             setDeleteDialog([stream.name]);
                           }}
