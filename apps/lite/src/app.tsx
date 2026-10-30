@@ -115,22 +115,34 @@ function View({
 }): ReactElement | null {
   switch (view) {
     case 'basins':
+    case 'streams': {
+      // Keep <Basins /> at the same tree position in both views. Remounting it
+      // when navigating into a basin cancels its in-flight list refetch, so
+      // the list would still show the state from before a create or delete.
+      const withStreams = view === 'streams';
       return (
-        <div className="mx-auto max-w-3xl">
-          <Basins />
-        </div>
-      );
-    case 'streams':
-      return (
-        <div className="mx-auto flex max-w-[1240px] gap-6">
-          <aside className="hidden w-80 shrink-0 xl:block">
+        <div
+          className={
+            withStreams
+              ? 'mx-auto flex max-w-[1240px] gap-6'
+              : 'mx-auto max-w-3xl'
+          }
+        >
+          <div
+            className={
+              withStreams ? 'hidden w-80 shrink-0 xl:block' : undefined
+            }
+          >
             <Basins />
-          </aside>
-          <div className="flex min-w-0 flex-1 justify-center">
-            <Streams />
           </div>
+          {withStreams && (
+            <div className="flex min-w-0 flex-1 justify-center">
+              <Streams />
+            </div>
+          )}
         </div>
       );
+    }
     case 'studio':
       return <Studio />;
     case 'server':
