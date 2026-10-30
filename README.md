@@ -19,3 +19,9 @@ pnpm build
 The regression tests cover pagination and account changes, Studio stream isolation,
 encryption metadata and copied requests, append preconditions, selector errors,
 file input modes, and theme preferences when browser storage is unavailable.
+
+## Releasing
+
+Every push to `main` rebuilds `apps/lite/dist` and tags `v<version>` from
+`apps/lite/package.json` if that tag is new. Bump the version in any PR that
+should ship to s2.dev (pinned to a tag) or `s2` (submodule), then re-pin them.
