@@ -31,5 +31,9 @@ describe('append record timestamp', () => {
     expect(parseRecordTimestamp('2023-11-14T22:13:20Z', 0)).toBe(1700000000000);
     expect(() => parseRecordTimestamp('soon', 3)).toThrow('Record 3');
     expect(() => parseRecordTimestamp(-1, 0)).toThrow('invalid timestamp');
+    expect(() => parseRecordTimestamp(['2023-11-14T22:13:20Z'], 0)).toThrow(
+      'invalid timestamp'
+    );
+    expect(() => parseRecordTimestamp({}, 0)).toThrow('invalid timestamp');
   });
 });
