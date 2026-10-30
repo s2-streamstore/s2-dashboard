@@ -9,3 +9,18 @@ export function parseMatchSeqNum(value: string): number | undefined {
   }
   return parsed;
 }
+
+export function parseRecordTimestamp(
+  value: unknown,
+  index: number
+): number | undefined {
+  if (value === undefined || value === null) return undefined;
+  const millis =
+    typeof value === 'number' ? value : new Date(String(value)).getTime();
+  if (!Number.isFinite(millis) || millis < 0) {
+    throw new Error(
+      `Record ${index} has an invalid timestamp; use epoch milliseconds or an ISO date.`
+    );
+  }
+  return Math.trunc(millis);
+}

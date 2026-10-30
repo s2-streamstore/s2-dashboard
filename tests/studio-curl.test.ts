@@ -59,7 +59,10 @@ describe('copied requests', () => {
         'local-basin',
         'events',
         {
-          records: [{ body: "it's $literal\ntext" }],
+          records: [
+            { body: "it's $literal\ntext" },
+            { body: 'stamped', timestamp: 1700000000000 },
+          ],
           matchSeqNum: 0,
           fencingToken: 'fence',
         },
@@ -71,7 +74,10 @@ describe('copied requests', () => {
     expect(argv).toContain('s2-encryption-key: YWJjZA==');
     expect(argv).toContain('s2-basin: local-basin');
     expect(JSON.parse(argv[argv.indexOf('--data') + 1])).toEqual({
-      records: [{ body: "it's $literal\ntext" }],
+      records: [
+        { body: "it's $literal\ntext" },
+        { body: 'stamped', timestamp: 1700000000000 },
+      ],
       match_seq_num: 0,
       fencing_token: 'fence',
     });

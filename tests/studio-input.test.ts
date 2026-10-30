@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { parseMatchSeqNum } from '../packages/dashboard/src/basins/studio-input';
+import {
+  parseMatchSeqNum,
+  parseRecordTimestamp,
+} from '../packages/dashboard/src/basins/studio-input';
 
 describe('append sequence precondition', () => {
   it.each([
@@ -18,5 +21,15 @@ describe('append sequence precondition', () => {
     expect(parseMatchSeqNum(' 42 ')).toBe(42);
     expect(parseMatchSeqNum('9007199254740991')).toBe(Number.MAX_SAFE_INTEGER);
     expect(parseMatchSeqNum('')).toBeUndefined();
+  });
+});
+
+describe('append record timestamp', () => {
+  it('accepts epoch milliseconds and ISO dates, rejects anything else', () => {
+    expect(parseRecordTimestamp(undefined, 0)).toBeUndefined();
+    expect(parseRecordTimestamp(1700000000000, 0)).toBe(1700000000000);
+    expect(parseRecordTimestamp('2023-11-14T22:13:20Z', 0)).toBe(1700000000000);
+    expect(() => parseRecordTimestamp('soon', 3)).toThrow('Record 3');
+    expect(() => parseRecordTimestamp(-1, 0)).toThrow('invalid timestamp');
   });
 });
