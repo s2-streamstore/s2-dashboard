@@ -123,6 +123,9 @@ export function buildAppendCurlCommand(
     records: input.records.map((record) => ({
       body: record.body,
       ...(record.headers ? { headers: record.headers } : {}),
+      ...(record.timestamp !== undefined
+        ? { timestamp: toEpochMillis(record.timestamp) }
+        : {}),
     })),
     ...(input.matchSeqNum !== undefined
       ? { match_seq_num: input.matchSeqNum }

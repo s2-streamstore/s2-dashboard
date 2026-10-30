@@ -71,7 +71,7 @@ import {
   toUTCDateTimeValue,
 } from '../lib/date-time';
 import { buildReadCurlCommand, buildAppendCurlCommand } from './studio-curl';
-import { parseMatchSeqNum } from './studio-input';
+import { parseMatchSeqNum, parseRecordTimestamp } from './studio-input';
 import {
   appendToStream,
   checkStreamTail,
@@ -839,6 +839,10 @@ function StudioSession(): JSX.Element | null {
       return {
         body,
         headers: parseHeaders((item as { headers?: unknown }).headers),
+        timestamp: parseRecordTimestamp(
+          (item as { timestamp?: unknown }).timestamp,
+          index
+        ),
       };
     });
   };
@@ -1669,9 +1673,10 @@ function StudioSession(): JSX.Element | null {
                             How to interpret the payload: one record, one record
                             per newline, or a JSON array of{' '}
                             <code className="font-mono">
-                              {'{body, headers?}'}
+                              {'{body, headers?, timestamp?}'}
                             </code>{' '}
-                            objects.
+                            objects. Timestamps are epoch milliseconds or ISO
+                            dates.
                           </TooltipContent>
                         </Tooltip>
                         <Select
