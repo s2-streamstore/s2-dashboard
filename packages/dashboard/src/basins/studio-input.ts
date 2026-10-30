@@ -16,7 +16,11 @@ export function parseRecordTimestamp(
 ): number | undefined {
   if (value === undefined || value === null) return undefined;
   const millis =
-    typeof value === 'number' ? value : new Date(String(value)).getTime();
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string'
+        ? new Date(value).getTime()
+        : NaN;
   if (!Number.isFinite(millis) || millis < 0) {
     throw new Error(
       `Record ${index} has an invalid timestamp; use epoch milliseconds or an ISO date.`
