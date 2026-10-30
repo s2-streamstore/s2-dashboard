@@ -129,6 +129,7 @@ function View({
           }
         >
           <div
+            role={withStreams ? 'complementary' : undefined}
             className={
               withStreams ? 'hidden w-80 shrink-0 xl:block' : undefined
             }
