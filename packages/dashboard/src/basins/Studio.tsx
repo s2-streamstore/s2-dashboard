@@ -262,6 +262,7 @@ function StudioSession(): JSX.Element | null {
   const streamAbortControllerRef = useRef<AbortController | null>(null);
   const previousStreamRef = useRef<string>('');
   const sessionAbortRef = useRef(new AbortController());
+  const readIdRef = useRef(0);
 
   const resolveToken = useCallback(async (): Promise<string | null> => {
     return await getToken();
@@ -577,6 +578,10 @@ function StudioSession(): JSX.Element | null {
       return;
     }
 
+    // A newer read owns the record view; an older one must not add to it.
+    const readId = ++readIdRef.current;
+    const stale = () => signal.aborted || readIdRef.current !== readId;
+
     recordViewRef.current?.clear();
     recordViewRef.current?.addStatus(
       'info',
@@ -591,7 +596,7 @@ function StudioSession(): JSX.Element | null {
         input,
         encryptionKey.trim() || undefined
       );
-      if (signal.aborted) return;
+      if (stale()) return;
       response.records.forEach((record) => {
         recordViewRef.current?.addRecord({
           seqNum: record.seqNum,
@@ -617,7 +622,7 @@ function StudioSession(): JSX.Element | null {
         } catch {
           // The hint below is skipped when the tail is unknown.
         }
-        if (signal.aborted) return;
+        if (stale()) return;
       }
       if (tail) {
         setTailInfo(tail);
@@ -640,7 +645,7 @@ function StudioSession(): JSX.Element | null {
         );
       }
     } catch (error) {
-      if (signal.aborted) return;
+      if (stale()) return;
       if (
         error instanceof RangeNotSatisfiableError &&
         error.tail &&
@@ -774,6 +779,7 @@ function StudioSession(): JSX.Element | null {
       return;
     }
 
+    readIdRef.current += 1;
     setIsStreaming(true);
     setRecordsReceived(0);
     setStreamStartedAtMs(Date.now());
