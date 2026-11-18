@@ -622,12 +622,14 @@ function StudioSession(): JSX.Element | null {
       if (tail) {
         setTailInfo(tail);
       }
+      // With command records hidden, the last record shown can trail the
+      // read's real progress, so the hint only states what is known.
       const last = response.records.at(-1);
       const nextSeqNum = last ? Number(last.seqNum) + 1 : undefined;
       if (tail && nextSeqNum !== undefined && nextSeqNum < tail.seqNum) {
         recordViewRef.current?.addStatus(
           'info',
-          `Stopped at a read limit before the tail (seq ${tail.seqNum}).`,
+          `Last record shown is before the tail (seq ${tail.seqNum}).`,
           {
             label: `Continue from seq ${nextSeqNum}`,
             onClick: () => {
