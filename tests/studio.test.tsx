@@ -159,6 +159,29 @@ it('ignores a late one-shot read after changing streams', async () => {
   expect(recordView.addRecord).not.toHaveBeenCalled();
 });
 
+it('offers to continue a one-shot read that stopped before the tail', async () => {
+  vi.mocked(api.readStreamBatch).mockResolvedValue({
+    records: [{ seqNum: 999, timestamp: new Date(0), body: 'x', headers: [] }],
+  } as ReadBatch<'string'>);
+  vi.mocked(api.checkStreamTail).mockResolvedValue({
+    tail: { seqNum: 2000, timestamp: new Date(0) },
+  });
+  renderDashboard(<Studio />, { route: route('basin-a') });
+  const user = userEvent.setup();
+  await screen.findByPlaceholderText('base64 key');
+  await user.click(screen.getByRole('button', { name: 'Read Once' }));
+  await waitFor(() =>
+    expect(recordView.addStatus).toHaveBeenCalledWith(
+      'info',
+      expect.stringContaining('before the tail (seq 2000)'),
+      expect.objectContaining({ label: 'Continue from seq 1000' })
+    )
+  );
+  const action = recordView.addStatus.mock.calls.at(-1)?.[2];
+  act(() => action.onClick());
+  expect(screen.getByDisplayValue('1000')).toBeTruthy();
+});
+
 it('does not append when a supplied match sequence is invalid', async () => {
   renderDashboard(<Studio />, { route: route('basin-a') });
   const user = userEvent.setup();

@@ -608,8 +608,34 @@ function StudioSession(): JSX.Element | null {
         'success',
         `Read ${response.records.length} record(s)`
       );
-      if (response.tail) {
-        setTailInfo(response.tail);
+      // A read only reports the tail when it gets near it, so ask for it
+      // to tell a read that stopped at a limit from one that reached the end.
+      let tail = response.tail;
+      if (!tail) {
+        try {
+          tail = (await checkStreamTail(s2, basinId, selectedStream)).tail;
+        } catch {
+          // The hint below is skipped when the tail is unknown.
+        }
+        if (signal.aborted) return;
+      }
+      if (tail) {
+        setTailInfo(tail);
+      }
+      const last = response.records.at(-1);
+      const nextSeqNum = last ? Number(last.seqNum) + 1 : undefined;
+      if (tail && nextSeqNum !== undefined && nextSeqNum < tail.seqNum) {
+        recordViewRef.current?.addStatus(
+          'info',
+          `Stopped at a read limit before the tail (seq ${tail.seqNum}).`,
+          {
+            label: `Continue from seq ${nextSeqNum}`,
+            onClick: () => {
+              setReadStartMode('seqNum');
+              setReadFromValue(String(nextSeqNum));
+            },
+          }
+        );
       }
     } catch (error) {
       if (signal.aborted) return;
