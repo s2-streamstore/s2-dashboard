@@ -18,6 +18,7 @@ import {
   Terminal,
 } from 'lucide-react';
 import { Button } from '../ui/button';
+import { toast } from '../ui/use-toast';
 import { cn } from '../lib/utils';
 import { SIZE_BODY, SIZE_CONTROL, SIZE_LABEL } from './studio-type';
 import { formatUTCTime, formatUTCTimestamp } from '../lib/date-time';
@@ -160,7 +161,11 @@ function RecordItem({ record, defaultExpanded = false }: RecordItemProps) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      return;
+      toast({
+        title: 'Could not copy record body',
+        description: 'Open the record and select the body to copy it manually.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -198,15 +203,15 @@ function RecordItem({ record, defaultExpanded = false }: RecordItemProps) {
         </span>
         <span
           className={cn(
-            'text-muted-foreground/70 w-[96px] shrink-0 font-mono @lg:w-48',
+            'text-muted-foreground/70 w-[96px] shrink-0 font-mono @2xl:w-48',
             SIZE_CONTROL,
             'whitespace-nowrap tabular-nums'
           )}
         >
-          <span className="@lg:hidden">{shortTime}</span>
-          <span className="hidden @lg:inline">{timeString}</span>
+          <span className="@2xl:hidden">{shortTime}</span>
+          <span className="hidden @2xl:inline">{timeString}</span>
         </span>
-        <span className="hidden w-20 shrink-0 items-center gap-1 @lg:flex">
+        <span className="hidden w-20 shrink-0 items-center gap-1 @2xl:flex">
           {isJson && (
             <span
               className={cn(
@@ -246,7 +251,7 @@ function RecordItem({ record, defaultExpanded = false }: RecordItemProps) {
         </span>
         <span
           className={cn(
-            'text-muted-foreground/70 hidden w-14 shrink-0 text-right font-mono @lg:block',
+            'text-muted-foreground/70 hidden w-14 shrink-0 text-right font-mono @2xl:block',
             SIZE_CONTROL,
             'tabular-nums'
           )}
@@ -275,7 +280,7 @@ function RecordItem({ record, defaultExpanded = false }: RecordItemProps) {
           className={cn(
             'size-7 shrink-0 rounded-sm p-0',
             !isExpanded &&
-              'pointer-events-none hidden opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100 @lg:inline-flex'
+              'pointer-events-none hidden opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100 @2xl:inline-flex'
           )}
           onClick={copyBody}
         >
@@ -523,7 +528,7 @@ export const RecordView = forwardRef<RecordViewHandle, RecordViewProps>(
               </span>
               <span
                 className={cn(
-                  'text-muted-foreground w-[96px] shrink-0 @lg:w-48',
+                  'text-muted-foreground w-[96px] shrink-0 @2xl:w-48',
                   SIZE_LABEL
                 )}
               >
@@ -531,7 +536,7 @@ export const RecordView = forwardRef<RecordViewHandle, RecordViewProps>(
               </span>
               <span
                 className={cn(
-                  'text-muted-foreground hidden w-20 shrink-0 @lg:block',
+                  'text-muted-foreground hidden w-20 shrink-0 @2xl:block',
                   SIZE_LABEL
                 )}
               >
@@ -539,7 +544,7 @@ export const RecordView = forwardRef<RecordViewHandle, RecordViewProps>(
               </span>
               <span
                 className={cn(
-                  'text-muted-foreground hidden w-14 shrink-0 text-right @lg:block',
+                  'text-muted-foreground hidden w-14 shrink-0 text-right @2xl:block',
                   SIZE_LABEL
                 )}
               >

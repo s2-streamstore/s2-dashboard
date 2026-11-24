@@ -1,11 +1,11 @@
 import { createRef } from 'react';
-import { act, render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { expect, it } from 'vitest';
 import {
   RecordView,
   type RecordViewHandle,
 } from '../packages/dashboard/src/basins/RecordView';
+import { Toaster } from '../packages/dashboard/src/ui/toaster';
 
 it('keeps a full batch next to status rows and drops only the oldest records', () => {
   const ref = createRef<RecordViewHandle>();
@@ -36,10 +36,14 @@ it('keeps a full batch next to status rows and drops only the oldest records', (
   expect(screen.queryByText(/dropped/)).toBeNull();
 });
 
-it('guards the invisible Copy button and allows copying after expansion', async () => {
-  const user = userEvent.setup();
+it('offers manual copying when the clipboard API is unavailable', async () => {
   const ref = createRef<RecordViewHandle>();
-  render(<RecordView ref={ref} />);
+  render(
+    <>
+      <RecordView ref={ref} />
+      <Toaster />
+    </>
+  );
   act(() => {
     ref.current!.addRecord({
       seqNum: 18,
@@ -48,12 +52,11 @@ it('guards the invisible Copy button and allows copying after expansion', async 
     });
   });
 
-  const copy = screen.getByRole('button', { name: 'Copy record #18 body' });
-  expect(copy.classList.contains('pointer-events-none')).toBe(true);
+  fireEvent.click(screen.getByRole('button', { name: 'Record #18 details' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Copy record #18 body' }));
 
-  await user.click(screen.getByRole('button', { name: 'Record #18 details' }));
-  expect(copy.classList.contains('pointer-events-none')).toBe(false);
-  await user.click(copy);
-  expect(await navigator.clipboard.readText()).toBe('record body');
-  expect(screen.getByText('record body')).toBeTruthy();
+  expect(await screen.findByText('Could not copy record body')).toBeTruthy();
+  expect(
+    screen.getByText('Open the record and select the body to copy it manually.')
+  ).toBeTruthy();
 });
