@@ -142,7 +142,7 @@ function RecordItem({ record, defaultExpanded = false }: RecordItemProps) {
   const commandSummary =
     commandType === 'trim'
       ? trimTargetSeqNum !== null
-        ? `trim through #${trimTargetSeqNum}`
+        ? `trim before #${trimTargetSeqNum}`
         : 'trim command'
       : commandType === 'fence'
         ? record.body
@@ -170,12 +170,23 @@ function RecordItem({ record, defaultExpanded = false }: RecordItemProps) {
         className="hover:bg-muted/60 flex cursor-pointer items-center gap-2 px-4 py-2 transition-colors dark:hover:bg-white/[0.03]"
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        <ChevronRight
-          className={cn(
-            'text-muted-foreground/50 h-3.5 w-3.5 shrink-0 transition-transform duration-150',
-            isExpanded && 'text-muted-foreground rotate-90'
-          )}
-        />
+        <button
+          type="button"
+          className="shrink-0 rounded-sm"
+          aria-label={`Record #${seqNum} details`}
+          aria-expanded={isExpanded}
+          onClick={(event) => {
+            event.stopPropagation();
+            setIsExpanded(!isExpanded);
+          }}
+        >
+          <ChevronRight
+            className={cn(
+              'text-muted-foreground/50 h-3.5 w-3.5 transition-transform duration-150',
+              isExpanded && 'text-muted-foreground rotate-90'
+            )}
+          />
+        </button>
         <span
           className={cn(
             'text-muted-foreground w-12 shrink-0 text-right font-mono',
@@ -187,15 +198,15 @@ function RecordItem({ record, defaultExpanded = false }: RecordItemProps) {
         </span>
         <span
           className={cn(
-            'text-muted-foreground/70 w-[96px] shrink-0 font-mono sm:w-48',
+            'text-muted-foreground/70 w-[96px] shrink-0 font-mono @lg:w-48',
             SIZE_CONTROL,
             'whitespace-nowrap tabular-nums'
           )}
         >
-          <span className="sm:hidden">{shortTime}</span>
-          <span className="hidden sm:inline">{timeString}</span>
+          <span className="@lg:hidden">{shortTime}</span>
+          <span className="hidden @lg:inline">{timeString}</span>
         </span>
-        <span className="hidden w-20 shrink-0 items-center gap-1 sm:flex">
+        <span className="hidden w-20 shrink-0 items-center gap-1 @lg:flex">
           {isJson && (
             <span
               className={cn(
@@ -235,7 +246,7 @@ function RecordItem({ record, defaultExpanded = false }: RecordItemProps) {
         </span>
         <span
           className={cn(
-            'text-muted-foreground/70 hidden w-14 shrink-0 text-right font-mono sm:block',
+            'text-muted-foreground/70 hidden w-14 shrink-0 text-right font-mono @lg:block',
             SIZE_CONTROL,
             'tabular-nums'
           )}
@@ -260,13 +271,18 @@ function RecordItem({ record, defaultExpanded = false }: RecordItemProps) {
         <Button
           variant="ghost"
           size="sm"
-          className="hidden h-5 w-5 shrink-0 rounded-sm p-0 opacity-0 transition-opacity group-hover:opacity-100 sm:inline-flex"
+          aria-label={`Copy record #${seqNum} body`}
+          className={cn(
+            'size-7 shrink-0 rounded-sm p-0',
+            !isExpanded &&
+              'hidden opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 @lg:inline-flex'
+          )}
           onClick={copyBody}
         >
           {copied ? (
-            <Check className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+            <Check className="size-3 text-emerald-600 dark:text-emerald-400" />
           ) : (
-            <Copy className="text-muted-foreground/50 h-3 w-3" />
+            <Copy className="text-muted-foreground size-3" />
           )}
         </Button>
       </div>
@@ -291,7 +307,7 @@ function RecordItem({ record, defaultExpanded = false }: RecordItemProps) {
                 )}
               >
                 {commandType === 'trim' && trimTargetSeqNum !== null
-                  ? `Trim through sequence #${trimTargetSeqNum}`
+                  ? `Trim before sequence #${trimTargetSeqNum}`
                   : commandType === 'trim'
                     ? 'Trim command'
                     : record.body
@@ -490,7 +506,7 @@ export const RecordView = forwardRef<RecordViewHandle, RecordViewProps>(
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="bg-muted/40 h-full overflow-y-auto"
+        className="bg-muted/40 @container h-full overflow-y-auto"
         style={{ scrollbarGutter: 'stable' }}
       >
         {items.length > 0 && (
@@ -507,7 +523,7 @@ export const RecordView = forwardRef<RecordViewHandle, RecordViewProps>(
               </span>
               <span
                 className={cn(
-                  'text-muted-foreground w-[96px] shrink-0 sm:w-48',
+                  'text-muted-foreground w-[96px] shrink-0 @lg:w-48',
                   SIZE_LABEL
                 )}
               >
@@ -515,7 +531,7 @@ export const RecordView = forwardRef<RecordViewHandle, RecordViewProps>(
               </span>
               <span
                 className={cn(
-                  'text-muted-foreground hidden w-20 shrink-0 sm:block',
+                  'text-muted-foreground hidden w-20 shrink-0 @lg:block',
                   SIZE_LABEL
                 )}
               >
@@ -523,7 +539,7 @@ export const RecordView = forwardRef<RecordViewHandle, RecordViewProps>(
               </span>
               <span
                 className={cn(
-                  'text-muted-foreground hidden w-14 shrink-0 text-right sm:block',
+                  'text-muted-foreground hidden w-14 shrink-0 text-right @lg:block',
                   SIZE_LABEL
                 )}
               >

@@ -1139,7 +1139,7 @@ function StudioSession(): JSX.Element | null {
       setLastCommandAck(ack);
       toast({
         title: 'Trim command submitted',
-        description: `Stream trimmed through sequence #${seqNum}.`,
+        description: `Target: retain records from sequence #${seqNum} onward.`,
       });
       void refreshTail();
       setTrimConfirmSeqNum(null);
@@ -1958,7 +1958,7 @@ function StudioSession(): JSX.Element | null {
                     <div className="space-y-1.5">
                       <div className="flex items-baseline justify-between gap-2">
                         <Label htmlFor="studio-trim-seq" className={LABEL}>
-                          Trim through
+                          Trim before
                         </Label>
                         <DocsLink
                           href={STUDIO_DOCS.retention}
@@ -1966,13 +1966,12 @@ function StudioSession(): JSX.Element | null {
                         />
                       </div>
                       <p className={LABEL}>
-                        Discards every record up to and including this sequence
-                        number.
+                        Discards every record before this sequence number.
                       </p>
                       <div className="flex items-center gap-1">
                         <Input
                           id="studio-trim-seq"
-                          aria-label="Trim through sequence number"
+                          aria-label="Trim before sequence number"
                           placeholder="Sequence number"
                           value={trimSeqNum}
                           onChange={(e) => setTrimSeqNum(e.target.value)}
@@ -2047,11 +2046,11 @@ function StudioSession(): JSX.Element | null {
                     Confirm trim command
                   </DialogTitle>
                   <DialogDescription>
-                    This action is irreversible. Trim{' '}
+                    This action is irreversible. Discard records in{' '}
                     <span className="text-foreground font-mono">
                       {selectedStream}
                     </span>{' '}
-                    through sequence{' '}
+                    before sequence{' '}
                     <span className="text-foreground font-mono">
                       #{trimConfirmSeqNum ?? 'n/a'}
                     </span>
