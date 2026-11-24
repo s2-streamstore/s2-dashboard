@@ -275,7 +275,7 @@ function RecordItem({ record, defaultExpanded = false }: RecordItemProps) {
           className={cn(
             'size-7 shrink-0 rounded-sm p-0',
             !isExpanded &&
-              'hidden opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 @lg:inline-flex'
+              'pointer-events-none hidden opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100 @lg:inline-flex'
           )}
           onClick={copyBody}
         >
