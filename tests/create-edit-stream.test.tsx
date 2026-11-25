@@ -34,7 +34,7 @@ describe('streamNameError', () => {
 });
 
 describe('CreateEditStreamDialog', () => {
-  it('caps the stream name input at 253 and blocks overlong multibyte names', async () => {
+  it('rejects overlong ASCII and multibyte names without truncating input', async () => {
     const user = userEvent.setup();
     renderDashboard(
       <CreateEditStreamDialog
@@ -45,7 +45,17 @@ describe('CreateEditStreamDialog', () => {
     );
 
     const input = screen.getByLabelText('Stream Name');
-    expect(input.getAttribute('maxlength')).toBe('253');
+    expect(input.getAttribute('maxlength')).toBeNull();
+
+    fireEvent.change(input, { target: { value: 'a'.repeat(254) } });
+    await user.click(screen.getByRole('button', { name: 'Create Stream' }));
+
+    const errorEl = await screen.findByText(
+      'Stream name must not exceed 253 bytes.'
+    );
+    expect(errorEl.id).toBe('streamId-error');
+    expect(input.getAttribute('aria-describedby')).toBe('streamId-error');
+    expect(api.createStream).not.toHaveBeenCalled();
 
     fireEvent.change(input, { target: { value: '😀'.repeat(64) } });
     await user.click(screen.getByRole('button', { name: 'Create Stream' }));

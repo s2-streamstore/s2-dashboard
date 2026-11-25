@@ -152,7 +152,6 @@ const CreateEditStreamDialog = ({
         </DialogHeader>
         <form
           onSubmit={handleSubmit}
-          noValidate
           className="flex flex-1 flex-col overflow-hidden"
         >
           <div className="[&::-webkit-scrollbar-thumb]:dark:bg-muted-foreground/40 hover:[&::-webkit-scrollbar-thumb]:dark:bg-muted-foreground/60 flex-1 space-y-5 overflow-y-auto pr-3 pl-1 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent">
@@ -161,7 +160,6 @@ const CreateEditStreamDialog = ({
               <Input
                 id="streamId"
                 type="text"
-                required
                 value={streamId}
                 onChange={(e) => {
                   setStreamId(e.target.value);
@@ -169,12 +167,15 @@ const CreateEditStreamDialog = ({
                 }}
                 placeholder="Enter stream name"
                 autoComplete="off"
-                maxLength={MAX_STREAM_NAME_BYTES}
                 aria-invalid={showNameError}
+                aria-describedby={showNameError ? 'streamId-error' : undefined}
                 disabled={Boolean(data)}
               />
               {showNameError && (
-                <p className="text-destructive text-xs dark:text-red-400">
+                <p
+                  id="streamId-error"
+                  className="text-destructive text-xs dark:text-red-400"
+                >
                   {nameError}
                 </p>
               )}
