@@ -7,6 +7,7 @@ import {
   useCallback,
   forwardRef,
   useImperativeHandle,
+  type ReactNode,
 } from 'react';
 import {
   ChevronRight,
@@ -18,6 +19,7 @@ import {
   Terminal,
 } from 'lucide-react';
 import { Button } from '../ui/button';
+import { toast } from '../ui/use-toast';
 import { cn } from '../lib/utils';
 import { SIZE_BODY, SIZE_CONTROL, SIZE_LABEL } from './studio-type';
 import { formatUTCTime, formatUTCTimestamp } from '../lib/date-time';
@@ -142,7 +144,7 @@ function RecordItem({ record, defaultExpanded = false }: RecordItemProps) {
   const commandSummary =
     commandType === 'trim'
       ? trimTargetSeqNum !== null
-        ? `trim through #${trimTargetSeqNum}`
+        ? `trim before #${trimTargetSeqNum}`
         : 'trim command'
       : commandType === 'fence'
         ? record.body
@@ -160,7 +162,11 @@ function RecordItem({ record, defaultExpanded = false }: RecordItemProps) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      return;
+      toast({
+        title: 'Could not copy record body',
+        description: 'Open the record and select the body to copy it manually.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -170,12 +176,23 @@ function RecordItem({ record, defaultExpanded = false }: RecordItemProps) {
         className="hover:bg-muted/60 flex cursor-pointer items-center gap-2 px-4 py-2 transition-colors dark:hover:bg-white/[0.03]"
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        <ChevronRight
-          className={cn(
-            'text-muted-foreground/50 h-3.5 w-3.5 shrink-0 transition-transform duration-150',
-            isExpanded && 'text-muted-foreground rotate-90'
-          )}
-        />
+        <button
+          type="button"
+          className="shrink-0 rounded-sm"
+          aria-label={`Record #${seqNum} details`}
+          aria-expanded={isExpanded}
+          onClick={(event) => {
+            event.stopPropagation();
+            setIsExpanded(!isExpanded);
+          }}
+        >
+          <ChevronRight
+            className={cn(
+              'text-muted-foreground/50 h-3.5 w-3.5 transition-transform duration-150',
+              isExpanded && 'text-muted-foreground rotate-90'
+            )}
+          />
+        </button>
         <span
           className={cn(
             'text-muted-foreground w-12 shrink-0 text-right font-mono',
@@ -187,15 +204,15 @@ function RecordItem({ record, defaultExpanded = false }: RecordItemProps) {
         </span>
         <span
           className={cn(
-            'text-muted-foreground/70 w-[96px] shrink-0 font-mono sm:w-48',
+            'text-muted-foreground/70 w-[96px] shrink-0 font-mono @2xl:w-48',
             SIZE_CONTROL,
             'whitespace-nowrap tabular-nums'
           )}
         >
-          <span className="sm:hidden">{shortTime}</span>
-          <span className="hidden sm:inline">{timeString}</span>
+          <span className="@2xl:hidden">{shortTime}</span>
+          <span className="hidden @2xl:inline">{timeString}</span>
         </span>
-        <span className="hidden w-20 shrink-0 items-center gap-1 sm:flex">
+        <span className="hidden w-20 shrink-0 items-center gap-1 @2xl:flex">
           {isJson && (
             <span
               className={cn(
@@ -235,7 +252,7 @@ function RecordItem({ record, defaultExpanded = false }: RecordItemProps) {
         </span>
         <span
           className={cn(
-            'text-muted-foreground/70 hidden w-14 shrink-0 text-right font-mono sm:block',
+            'text-muted-foreground/70 hidden w-14 shrink-0 text-right font-mono @2xl:block',
             SIZE_CONTROL,
             'tabular-nums'
           )}
@@ -260,13 +277,18 @@ function RecordItem({ record, defaultExpanded = false }: RecordItemProps) {
         <Button
           variant="ghost"
           size="sm"
-          className="hidden h-5 w-5 shrink-0 rounded-sm p-0 opacity-0 transition-opacity group-hover:opacity-100 sm:inline-flex"
+          aria-label={`Copy record #${seqNum} body`}
+          className={cn(
+            'size-7 shrink-0 rounded-sm p-0',
+            !isExpanded &&
+              'pointer-events-none hidden opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100 @2xl:inline-flex'
+          )}
           onClick={copyBody}
         >
           {copied ? (
-            <Check className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+            <Check className="size-3 text-emerald-600 dark:text-emerald-400" />
           ) : (
-            <Copy className="text-muted-foreground/50 h-3 w-3" />
+            <Copy className="text-muted-foreground size-3" />
           )}
         </Button>
       </div>
@@ -291,7 +313,7 @@ function RecordItem({ record, defaultExpanded = false }: RecordItemProps) {
                 )}
               >
                 {commandType === 'trim' && trimTargetSeqNum !== null
-                  ? `Trim through sequence #${trimTargetSeqNum}`
+                  ? `Trim before sequence #${trimTargetSeqNum}`
                   : commandType === 'trim'
                     ? 'Trim command'
                     : record.body
@@ -406,6 +428,8 @@ export interface RecordViewHandle {
 
 interface RecordViewProps {
   maxRecords?: number;
+  emptyAction?: ReactNode;
+  isStreaming?: boolean;
 }
 
 type ItemType =
@@ -417,7 +441,7 @@ let statusIdCounter = 0;
 export const RecordView = forwardRef<RecordViewHandle, RecordViewProps>(
   // Rows are not virtualized, so a long streaming read has to drop old ones.
   // 1000 is the most records a single unary read returns.
-  function RecordView({ maxRecords = 1000 }, ref) {
+  function RecordView({ maxRecords = 1000, emptyAction, isStreaming }, ref) {
     const [items, setItems] = useState<ItemType[]>([]);
     const [droppedRecords, setDroppedRecords] = useState(0);
     const recordCountRef = useRef(0);
@@ -490,7 +514,7 @@ export const RecordView = forwardRef<RecordViewHandle, RecordViewProps>(
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="bg-muted/40 h-full overflow-y-auto"
+        className="bg-muted/40 @container h-full overflow-y-auto"
         style={{ scrollbarGutter: 'stable' }}
       >
         {items.length > 0 && (
@@ -507,7 +531,7 @@ export const RecordView = forwardRef<RecordViewHandle, RecordViewProps>(
               </span>
               <span
                 className={cn(
-                  'text-muted-foreground w-[96px] shrink-0 sm:w-48',
+                  'text-muted-foreground w-[96px] shrink-0 @2xl:w-48',
                   SIZE_LABEL
                 )}
               >
@@ -515,7 +539,7 @@ export const RecordView = forwardRef<RecordViewHandle, RecordViewProps>(
               </span>
               <span
                 className={cn(
-                  'text-muted-foreground hidden w-20 shrink-0 sm:block',
+                  'text-muted-foreground hidden w-20 shrink-0 @2xl:block',
                   SIZE_LABEL
                 )}
               >
@@ -523,7 +547,7 @@ export const RecordView = forwardRef<RecordViewHandle, RecordViewProps>(
               </span>
               <span
                 className={cn(
-                  'text-muted-foreground hidden w-14 shrink-0 text-right sm:block',
+                  'text-muted-foreground hidden w-14 shrink-0 text-right @2xl:block',
                   SIZE_LABEL
                 )}
               >
@@ -622,14 +646,19 @@ export const RecordView = forwardRef<RecordViewHandle, RecordViewProps>(
           </div>
         )}
         {items.length === 0 ? (
-          <div className="text-muted-foreground/60 flex h-full flex-col items-center justify-center gap-2">
+          <div className="text-muted-foreground/60 flex h-full flex-col items-center justify-center gap-2 px-4 text-center">
             <Terminal className="h-10 w-10 stroke-[1.2]" />
             <p className={cn('text-muted-foreground', SIZE_BODY)}>
-              Waiting for records
+              {isStreaming ? 'Listening for records…' : 'Waiting for records'}
             </p>
-            <p className={cn('text-muted-foreground/60', SIZE_LABEL)}>
-              Read Once or Stream to get started
-            </p>
+            {!isStreaming && emptyAction && (
+              <>
+                <p className={cn('text-muted-foreground/60', SIZE_LABEL)}>
+                  Watch records as they arrive.
+                </p>
+                {emptyAction}
+              </>
+            )}
           </div>
         ) : (
           <div className="divide-border/20 divide-y">
