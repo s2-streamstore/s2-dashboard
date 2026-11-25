@@ -1294,6 +1294,18 @@ function StudioSession(): JSX.Element | null {
     return null;
   }
 
+  const renderStreamButton = (className?: string) => (
+    <Button
+      size="sm"
+      className={cn(CONTROL, 'h-8 gap-1.5 rounded-sm', className)}
+      onClick={startStreaming}
+      disabled={!selectedStream}
+    >
+      <Play className="size-3" />
+      Stream
+    </Button>
+  );
+
   return (
     <TooltipProvider delayDuration={150}>
       <section className="flex w-full flex-1 flex-col gap-4 pt-4">
@@ -1442,7 +1454,11 @@ function StudioSession(): JSX.Element | null {
                 </div>
 
                 <div className="h-[45vh] min-h-[12rem] shrink-0 overflow-hidden lg:h-auto lg:min-h-0 lg:flex-1">
-                  <RecordView ref={recordViewRef} />
+                  <RecordView
+                    ref={recordViewRef}
+                    emptyAction={renderStreamButton()}
+                    isStreaming={isStreaming}
+                  />
                 </div>
 
                 <div className="border-border/40 shrink-0 border-t">
@@ -1612,17 +1628,7 @@ function StudioSession(): JSX.Element | null {
                           Stop
                         </Button>
                       ) : (
-                        <Button
-                          size="sm"
-                          className={cn(
-                            CONTROL,
-                            'h-8 flex-1 gap-1.5 rounded-sm'
-                          )}
-                          onClick={() => void startStreaming()}
-                        >
-                          <Play className="size-3" />
-                          Stream
-                        </Button>
+                        renderStreamButton('flex-1')
                       )}
                       <CopyIconButton
                         label="Copy stream as curl"

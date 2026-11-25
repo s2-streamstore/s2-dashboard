@@ -7,6 +7,7 @@ import {
   useCallback,
   forwardRef,
   useImperativeHandle,
+  type ReactNode,
 } from 'react';
 import {
   ChevronRight,
@@ -427,6 +428,8 @@ export interface RecordViewHandle {
 
 interface RecordViewProps {
   maxRecords?: number;
+  emptyAction?: ReactNode;
+  isStreaming?: boolean;
 }
 
 type ItemType =
@@ -438,7 +441,7 @@ let statusIdCounter = 0;
 export const RecordView = forwardRef<RecordViewHandle, RecordViewProps>(
   // Rows are not virtualized, so a long streaming read has to drop old ones.
   // 1000 is the most records a single unary read returns.
-  function RecordView({ maxRecords = 1000 }, ref) {
+  function RecordView({ maxRecords = 1000, emptyAction, isStreaming }, ref) {
     const [items, setItems] = useState<ItemType[]>([]);
     const [droppedRecords, setDroppedRecords] = useState(0);
     const recordCountRef = useRef(0);
@@ -643,14 +646,19 @@ export const RecordView = forwardRef<RecordViewHandle, RecordViewProps>(
           </div>
         )}
         {items.length === 0 ? (
-          <div className="text-muted-foreground/60 flex h-full flex-col items-center justify-center gap-2">
+          <div className="text-muted-foreground/60 flex h-full flex-col items-center justify-center gap-2 px-4 text-center">
             <Terminal className="h-10 w-10 stroke-[1.2]" />
             <p className={cn('text-muted-foreground', SIZE_BODY)}>
-              Waiting for records
+              {isStreaming ? 'Listening for records…' : 'Waiting for records'}
             </p>
-            <p className={cn('text-muted-foreground/60', SIZE_LABEL)}>
-              Read Once or Stream to get started
-            </p>
+            {!isStreaming && emptyAction && (
+              <>
+                <p className={cn('text-muted-foreground/60', SIZE_LABEL)}>
+                  Watch records as they arrive.
+                </p>
+                {emptyAction}
+              </>
+            )}
           </div>
         ) : (
           <div className="divide-border/20 divide-y">
