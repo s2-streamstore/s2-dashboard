@@ -1,5 +1,5 @@
 'use client';
-import { FormEvent, useState } from 'react';
+import { FormEvent, useRef, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -51,6 +51,7 @@ const CreateEditStreamDialog = ({
 
   const [streamId, setStreamId] = useState(data?.id || '');
   const [nameTouched, setNameTouched] = useState(false);
+  const streamIdInputRef = useRef<HTMLInputElement>(null);
   const [config, setConfig] = useState<StreamConfig>(
     data?.config || defaultConfig || {}
   );
@@ -72,6 +73,7 @@ const CreateEditStreamDialog = ({
     e.preventDefault();
     setNameTouched(true);
     if (nameError !== null) {
+      streamIdInputRef.current?.focus();
       return;
     }
     setIsAwaiting(true);
@@ -158,6 +160,7 @@ const CreateEditStreamDialog = ({
             <div className="space-y-2">
               <Label htmlFor="streamId">Stream Name</Label>
               <Input
+                ref={streamIdInputRef}
                 id="streamId"
                 type="text"
                 value={streamId}
@@ -167,6 +170,7 @@ const CreateEditStreamDialog = ({
                 }}
                 placeholder="Enter stream name"
                 autoComplete="off"
+                aria-required={isCreating}
                 aria-invalid={showNameError}
                 aria-describedby={showNameError ? 'streamId-error' : undefined}
                 disabled={Boolean(data)}
@@ -174,6 +178,7 @@ const CreateEditStreamDialog = ({
               {showNameError && (
                 <p
                   id="streamId-error"
+                  role="alert"
                   className="text-destructive text-xs dark:text-red-400"
                 >
                   {nameError}

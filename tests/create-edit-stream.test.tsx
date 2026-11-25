@@ -46,6 +46,13 @@ describe('CreateEditStreamDialog', () => {
 
     const input = screen.getByLabelText('Stream Name');
     expect(input.getAttribute('maxlength')).toBeNull();
+    expect(input.getAttribute('aria-required')).toBe('true');
+
+    await user.click(screen.getByRole('button', { name: 'Create Stream' }));
+    const requiredError = await screen.findByText('Stream name is required.');
+    expect(requiredError.getAttribute('role')).toBe('alert');
+    expect(document.activeElement).toBe(input);
+    expect(api.createStream).not.toHaveBeenCalled();
 
     fireEvent.change(input, { target: { value: 'a'.repeat(254) } });
     await user.click(screen.getByRole('button', { name: 'Create Stream' }));
