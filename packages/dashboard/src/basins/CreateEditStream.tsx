@@ -50,10 +50,15 @@ const CreateEditStreamDialog = ({
   const { getClient, endpoints, recoverFromTierError } = useDashboardHost();
 
   const [streamId, setStreamId] = useState(data?.id || '');
+  const [nameTouched, setNameTouched] = useState(false);
   const [config, setConfig] = useState<StreamConfig>(
     data?.config || defaultConfig || {}
   );
   const [isAwaiting, setIsAwaiting] = useState(false);
+
+  const isCreating = !data;
+  const nameError = isCreating ? streamNameError(streamId) : null;
+  const showNameError = nameTouched && nameError !== null;
 
   const submitWithClient = async (s2: S2) => {
     if (data) {
@@ -65,6 +70,10 @@ const CreateEditStreamDialog = ({
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    setNameTouched(true);
+    if (nameError !== null) {
+      return;
+    }
     setIsAwaiting(true);
 
     const s2 = await getClient();
@@ -143,6 +152,7 @@ const CreateEditStreamDialog = ({
         </DialogHeader>
         <form
           onSubmit={handleSubmit}
+          noValidate
           className="flex flex-1 flex-col overflow-hidden"
         >
           <div className="[&::-webkit-scrollbar-thumb]:dark:bg-muted-foreground/40 hover:[&::-webkit-scrollbar-thumb]:dark:bg-muted-foreground/60 flex-1 space-y-5 overflow-y-auto pr-3 pl-1 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent">
@@ -153,12 +163,21 @@ const CreateEditStreamDialog = ({
                 type="text"
                 required
                 value={streamId}
-                onChange={(e) => setStreamId(e.target.value)}
+                onChange={(e) => {
+                  setStreamId(e.target.value);
+                  setNameTouched(true);
+                }}
                 placeholder="Enter stream name"
                 autoComplete="off"
-                maxLength={512}
+                maxLength={MAX_STREAM_NAME_BYTES}
+                aria-invalid={showNameError}
                 disabled={Boolean(data)}
               />
+              {showNameError && (
+                <p className="text-destructive text-xs dark:text-red-400">
+                  {nameError}
+                </p>
+              )}
             </div>
             <StreamConfigInputs config={config} setConfig={setConfig} />
             <Button type="submit" disabled={isAwaiting} className="w-full">
@@ -174,5 +193,24 @@ const CreateEditStreamDialog = ({
     </Dialog>
   );
 };
+
+const MAX_STREAM_NAME_BYTES = 253;
+const UTF8_ENCODER = new TextEncoder();
+
+export function streamNameError(name: string): string | null {
+  if (name.length === 0) {
+    return 'Stream name is required.';
+  }
+  if (name === '.' || name === '..') {
+    return 'Stream name must not be "." or "..".';
+  }
+  if (name.includes('\0')) {
+    return 'Stream name must not contain NUL bytes.';
+  }
+  if (UTF8_ENCODER.encode(name).length > MAX_STREAM_NAME_BYTES) {
+    return `Stream name must not exceed ${MAX_STREAM_NAME_BYTES} bytes.`;
+  }
+  return null;
+}
 
 export default CreateEditStreamDialog;
